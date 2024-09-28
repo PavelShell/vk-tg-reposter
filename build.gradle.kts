@@ -11,6 +11,9 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    implementation("com.vk.api:sdk:1.0.16")
+    implementation("dev.inmo:tgbotapi:18.2.1")
+    implementation("org.slf4j:slf4j-log4j12:2.0.16")
 }
 
 tasks.test {
