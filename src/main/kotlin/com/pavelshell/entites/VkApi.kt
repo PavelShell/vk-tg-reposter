@@ -1,12 +1,17 @@
 package com.pavelshell.entites
 
+import com.jfposton.ytdlp.YtDlp
+import com.jfposton.ytdlp.YtDlpException
+import com.jfposton.ytdlp.YtDlpRequest
 import com.vk.api.sdk.client.VkApiClient
 import com.vk.api.sdk.client.actors.ServiceActor
 import com.vk.api.sdk.httpclient.HttpTransportClient
 import com.vk.api.sdk.objects.photos.Photo
+import com.vk.api.sdk.objects.video.Video
 import com.vk.api.sdk.objects.wall.GetFilter
 import com.vk.api.sdk.objects.wall.WallItem
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.net.URL
 import java.time.Instant
 
@@ -54,6 +59,28 @@ class VkApi(appId: Int, accessToken: String) {
             .apply { sortBy { it.height + it.width } }
             .last()
             .url.toURL()
+    }
+
+    /**
+     * Tries to download the [video].
+     * Returns null in case of failure or if video size is bigger than [maxSizeMb].
+     */
+    fun downloadVideo(video: Video, maxSizeMb: Int = 0): File? {
+        val url = "https://vk.com/video${video.ownerId}_${video.id}"
+        val videoFile = File("vk_download_$url").apply { deleteOnExit() }
+        val request = YtDlpRequest(url).apply {
+            setOption("max-filesize", "${maxSizeMb}M")
+            setOption("format", "best[height<=720]")
+            setOption("output", videoFile.absolutePath)
+            setOption("force-overwrites")
+        }
+        try {
+            YtDlp.execute(request)
+            return videoFile
+        } catch (e: YtDlpException) {
+            logger.warn("Unable to download video from $url", e)
+            return null
+        }
     }
 
     private companion object {

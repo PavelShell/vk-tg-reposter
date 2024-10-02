@@ -4,6 +4,7 @@ import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.TelegramFile
 import com.github.kotlintelegrambot.entities.inputmedia.InputMediaPhoto
+import com.github.kotlintelegrambot.entities.inputmedia.InputMediaVideo
 import com.github.kotlintelegrambot.entities.inputmedia.MediaGroup
 import com.github.kotlintelegrambot.logging.LogLevel
 import com.pavelshell.models.Attachment
@@ -20,31 +21,54 @@ class TgApi(tgToken: String) {
         val chatId = ChatId.fromChannelUsername(channelId)
         if (publication.text.length > MAX_MESSAGE_SIZE) return
         // check failure status TelegramBotResult
+        // send (video) links with preview
         if (publication.attachments.isNotEmpty()) {
             if (publication.text.length > MAX_CAPTION_SIZE) {
                 if (publication.attachments.size > 1) {
-                    val photos = publication.attachments.map { InputMediaPhoto(TelegramFile.ByUrl((it as Attachment.Photo).url)) }
-                    bot.sendMediaGroup(chatId, MediaGroup.from(*photos.toTypedArray()))
+                    val inputMedias = publication.attachments.map {
+                        when (it) {
+                            is Attachment.Photo -> InputMediaPhoto(TelegramFile.ByUrl(it.url))
+                            is Attachment.Video -> InputMediaVideo(TelegramFile.ByFile(it.file))
+                        }
+                    }
+                    bot.sendMediaGroup(chatId, MediaGroup.from(*inputMedias.toTypedArray()))
                 } else {
-                    bot.sendPhoto(chatId, TelegramFile.ByUrl((publication.attachments.first() as Attachment.Photo).url))
+                    val attachment = publication.attachments.first()
+                    when (attachment) {
+                        is Attachment.Photo -> bot.sendPhoto(chatId, TelegramFile.ByUrl(attachment.url))
+                        is Attachment.Video -> bot.sendVideo(chatId, TelegramFile.ByFile(attachment.file))
+                    }
                 }
                 bot.sendMessage(chatId, publication.text)
             } else {
                 if (publication.attachments.size > 1) {
-                    val photos = publication.attachments.map { InputMediaPhoto(TelegramFile.ByUrl((it as Attachment.Photo).url)) }.toMutableList()
-                    photos[0] = InputMediaPhoto(photos[0].media, publication.text)
-                    bot.sendMediaGroup(chatId, MediaGroup.from(*photos.toTypedArray()))
+                    val inputMedias = publication.attachments.mapIndexed { index, it ->
+                        val caption = if (index == 0) publication.text else null
+                        when (it) {
+                            is Attachment.Photo -> InputMediaPhoto(TelegramFile.ByUrl(it.url), caption)
+                            is Attachment.Video -> InputMediaVideo(TelegramFile.ByFile(it.file), caption)
+                        }
+                    }
+                    bot.sendMediaGroup(chatId, MediaGroup.from(*inputMedias.toTypedArray()))
                 } else {
-                    bot.sendPhoto(chatId, TelegramFile.ByUrl((publication.attachments.first() as Attachment.Photo).url), publication.text)
+                    val attachment = publication.attachments.first()
+                    when (attachment) {
+                        is Attachment.Photo -> bot.sendPhoto(chatId, TelegramFile.ByUrl(attachment.url), publication.text)
+                        is Attachment.Video -> bot.sendVideo(chatId, TelegramFile.ByFile(attachment.file), caption = publication.text)
+                    }
                 }
             }
+        } else if (publication.text.isEmpty()) {
+            bot.sendMessage(chatId, publication.text)
         }
     }
 
-    private companion object {
+    companion object {
 
         private const val MAX_CAPTION_SIZE = 1024
 
         private const val MAX_MESSAGE_SIZE = 4096
+
+        const val MAX_FILE_SIZE_MB = 50
     }
 }
