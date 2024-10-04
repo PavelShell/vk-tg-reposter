@@ -38,5 +38,32 @@ sealed class Attachment {
         }
     }
 
-    data class Audio(val url: String, val artist: String?, val title: String?, val duration: Int?) : Attachment()
+    data class Audio(val data: ByteArray, val artist: String?, val title: String?, val duration: Int?) : Attachment() {
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as Audio
+
+            if (!data.contentEquals(other.data)) return false
+            if (artist != other.artist) return false
+            if (title != other.title) return false
+            if (duration != other.duration) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = data.contentHashCode()
+            result = 31 * result + (artist?.hashCode() ?: 0)
+            result = 31 * result + (title?.hashCode() ?: 0)
+            result = 31 * result + (duration ?: 0)
+            return result
+        }
+
+        override fun toString(): String {
+            return "Audio(data=[...], artist=$artist, title=$title, duration=$duration)"
+        }
+    }
 }

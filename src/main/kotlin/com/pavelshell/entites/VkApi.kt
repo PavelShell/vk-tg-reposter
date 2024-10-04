@@ -6,7 +6,6 @@ import com.jfposton.ytdlp.YtDlpRequest
 import com.vk.api.sdk.client.VkApiClient
 import com.vk.api.sdk.client.actors.ServiceActor
 import com.vk.api.sdk.httpclient.HttpTransportClient
-import com.vk.api.sdk.objects.docs.Doc
 import com.vk.api.sdk.objects.photos.Photo
 import com.vk.api.sdk.objects.video.Video
 import com.vk.api.sdk.objects.wall.GetFilter
@@ -68,12 +67,15 @@ class VkApi(appId: Int, accessToken: String) {
         .toURL()
 
     /**
-     * Tries to download the [document].
-     * Returns null in case of failure or if document size is bigger than [maxSizeMb].
+     * Tries to download the file located at [vkFileUrl].
+     * Returns null in case of failure or if file size is bigger than [maxSizeMb].
      */
-    fun tryDownloadDocument(document: Doc, maxSizeMb: Int = 0): Pair<URL, ByteArray>? {
-        // TODO: прописать duration и название?
-        val url = document.url.toURL().followRedirect()
+    fun tryDownloadFile(vkFileUrl: URI, maxSizeMb: Int = 0): Pair<URL, ByteArray>? {
+        if (vkFileUrl.toString().isEmpty()) {
+            // file is blocked
+            return null
+        }
+        val url = vkFileUrl.toURL().followRedirect()
         val bytes = url.readBytes()
         return if (bytes.size > maxSizeMb * 1_048_576L) null else url to bytes
     }
@@ -92,6 +94,7 @@ class VkApi(appId: Int, accessToken: String) {
      * Returns null in case of failure or if video size is bigger than [maxSizeMb].
      */
     fun tryDownloadVideo(video: Video, maxSizeMb: Int = 0): File? {
+        // TODO: supports_streaming?
         val url = "https://vk.com/video${video.ownerId}_${video.id}"
         // TODD: make sure that file is get deleted
         val videoFile = File("${video.ownerId}_${video.id}").apply { deleteOnExit() }

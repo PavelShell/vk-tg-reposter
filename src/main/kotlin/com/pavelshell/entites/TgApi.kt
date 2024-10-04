@@ -3,7 +3,6 @@ package com.pavelshell.entites
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.TelegramFile
-import com.github.kotlintelegrambot.entities.inputmedia.InputMediaAudio
 import com.github.kotlintelegrambot.entities.inputmedia.InputMediaPhoto
 import com.github.kotlintelegrambot.entities.inputmedia.InputMediaVideo
 import com.github.kotlintelegrambot.entities.inputmedia.MediaGroup
@@ -96,28 +95,16 @@ class TgApi(tgToken: String) {
     }
 
     private fun sendAudio(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
+        // TODO: send with caption
         val audios = attachments.filterIsInstance<Attachment.Audio>()
         if (audios.isEmpty()) {
             return false
         }
-        if (text != null) {
+        if (text != null && audios.size > 1) {
             sendMessage(chatId, text)
         }
-        if (audios.size == 1) {
-            val audio = audios.first()
-            handleError(
-                bot.sendAudio(chatId, TelegramFile.ByUrl(audio.url), audio.duration, audio.artist, audio.title)
-            )
-        } else {
-            val mediaGroup = audios.map {
-                InputMediaAudio(
-                    TelegramFile.ByUrl(it.url),
-                    duration = it.duration,
-                    performer = it.artist,
-                    title = it.title
-                )
-            }.let { MediaGroup.from(*it.toTypedArray()) }
-            handleError(bot.sendMediaGroup(chatId, mediaGroup))
+        audios.forEach {
+            handleError(bot.sendAudio(chatId, TelegramFile.ByByteArray(it.data), it.duration, it.artist, it.title))
         }
         return true
     }
@@ -132,7 +119,7 @@ class TgApi(tgToken: String) {
         callResult.onError {
             throw when (it) {
                 is TelegramBotResult.Error.Unknown -> TelegramApiException(cause = it.exception)
-                else -> TelegramApiException(this.toString())
+                else -> TelegramApiException(it.toString())
             }
         }
     }

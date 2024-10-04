@@ -13,7 +13,7 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
-
+    //TODO: error handling
     private val vkApi = VkApi(vkAppId, vkAccessToken)
 
     private val tgBot = TgApi(tgToken)
@@ -40,10 +40,11 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
         } else if (WallpostAttachmentType.VIDEO == type) {
             Attachment.Video(vkApi.tryDownloadVideo(video, TgApi.MAX_FILE_SIZE_MB) ?: return null)
         } else if (WallpostAttachmentType.DOC == type && GIF_DOCUMENT_CODE == doc.type) {
-            val (url, bytes) = vkApi.tryDownloadDocument(doc, TgApi.MAX_FILE_SIZE_MB) ?: return null
+            val (url, bytes) = vkApi.tryDownloadFile(doc.url, TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Gif(bytes, url.toString(), doc.id)
         } else if (WallpostAttachmentType.AUDIO == type) {
-            Attachment.Audio(audio.url.toString(), audio.artist, audio.title, audio.duration)
+            val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApi.MAX_FILE_SIZE_MB) ?: return null
+            Attachment.Audio(bytes, audio.artist, audio.title, audio.duration)
         } else {
             logger.debug("Can't convert unsupported attachment: {}.", this)
             null
