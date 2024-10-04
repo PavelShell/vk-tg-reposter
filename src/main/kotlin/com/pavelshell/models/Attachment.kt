@@ -37,4 +37,6 @@ sealed class Attachment {
             return "Gif(data=[...], url='$url', vkId=$vkId)"
         }
     }
+
+    data class Audio(val url: String, val artist: String?, val title: String?, val duration: Int?) : Attachment()
 }

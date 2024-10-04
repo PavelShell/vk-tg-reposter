@@ -42,6 +42,8 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
         } else if (WallpostAttachmentType.DOC == type && GIF_DOCUMENT_CODE == doc.type) {
             val (url, bytes) = vkApi.tryDownloadDocument(doc, TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Gif(bytes, url.toString(), doc.id)
+        } else if (WallpostAttachmentType.AUDIO == type) {
+            Attachment.Audio(audio.url.toString(), audio.artist, audio.title, audio.duration)
         } else {
             logger.debug("Can't convert unsupported attachment: {}.", this)
             null

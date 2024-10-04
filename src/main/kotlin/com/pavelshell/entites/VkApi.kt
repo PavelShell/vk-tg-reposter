@@ -31,23 +31,23 @@ class VkApi(appId: Int, accessToken: String) {
      * Returned posts are sorted by creation date ascending.
      */
     fun getWallPostsFrom(timePoint: Instant, domain: String): List<WallItem> {
-//        return vkApi.wall().getById(service, "-221726964_2213").execute().items
-        var offset = 0
-        var wallPostsSlice = getWallPostsSlice(domain, offset, AVERAGE_NEW_POSTS_COUNT).also {
-            if (it.isEmpty()) logger.warn("0 posts were found for domain $domain")
-        }
-        val result: MutableList<WallItem> = mutableListOf()
-        while (wallPostsSlice.isNotEmpty()) {
-            val newPosts = wallPostsSlice.takeWhile { timePoint.epochSecond < it.date }
-            result.addAll(newPosts)
-            val areAllNePostsFound = newPosts.size != wallPostsSlice.size
-            if (areAllNePostsFound) {
-                break
-            }
-            offset += newPosts.size
-            wallPostsSlice = getWallPostsSlice(domain, offset, MAX_WALL_POSTS_PER_REQUEST)
-        }
-        return result.reversed()
+        return vkApi.wall().getById(service, "-99604643_51").execute().items
+//        var offset = 0
+//        var wallPostsSlice = getWallPostsSlice(domain, offset, AVERAGE_NEW_POSTS_COUNT).also {
+//            if (it.isEmpty()) logger.warn("0 posts were found for domain $domain")
+//        }
+//        val result: MutableList<WallItem> = mutableListOf()
+//        while (wallPostsSlice.isNotEmpty()) {
+//            val newPosts = wallPostsSlice.takeWhile { timePoint.epochSecond < it.date }
+//            result.addAll(newPosts)
+//            val areAllNePostsFound = newPosts.size != wallPostsSlice.size
+//            if (areAllNePostsFound) {
+//                break
+//            }
+//            offset += newPosts.size
+//            wallPostsSlice = getWallPostsSlice(domain, offset, MAX_WALL_POSTS_PER_REQUEST)
+//        }
+//        return result.reversed()
     }
 
     private fun getWallPostsSlice(domain: String, offset: Int, count: Int): List<WallItem> = vkApi.wall().get(service)
@@ -72,6 +72,7 @@ class VkApi(appId: Int, accessToken: String) {
      * Returns null in case of failure or if document size is bigger than [maxSizeMb].
      */
     fun tryDownloadDocument(document: Doc, maxSizeMb: Int = 0): Pair<URL, ByteArray>? {
+        // TODO: прописать duration и название?
         val url = document.url.toURL().followRedirect()
         val bytes = url.readBytes()
         return if (bytes.size > maxSizeMb * 1_048_576L) null else url to bytes

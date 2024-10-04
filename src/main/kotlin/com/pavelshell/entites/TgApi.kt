@@ -3,6 +3,7 @@ package com.pavelshell.entites
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.TelegramFile
+import com.github.kotlintelegrambot.entities.inputmedia.InputMediaAudio
 import com.github.kotlintelegrambot.entities.inputmedia.InputMediaPhoto
 import com.github.kotlintelegrambot.entities.inputmedia.InputMediaVideo
 import com.github.kotlintelegrambot.entities.inputmedia.MediaGroup
@@ -21,10 +22,11 @@ class TgApi(tgToken: String) {
     private val logger = LoggerFactory.getLogger(TgApi::class.java)
 
     /**
-     * Sends [publication] to the [specified][channelUsername] channel.
+     * Sends [publication] to the [specified][channelId] channel.
+     *
+     * @throws TelegramApiException
      */
     fun publish(channelId: String, publication: Publication) {
-        // TODO: max 20 messages per minute.
         logger.trace("publishing {}", publication)
         if (publication.text != null && publication.text.length > MAX_MESSAGE_SIZE) {
             return
@@ -36,6 +38,7 @@ class TgApi(tgToken: String) {
         var textToSend = publication.text
         sendPhotoOrVideo(chatId, textToSend, publication.attachments).also { isSent -> if (isSent) textToSend = null }
         sendGif(chatId, textToSend, publication.attachments).also { isSent -> if (isSent) textToSend = null }
+        sendAudio(chatId, textToSend, publication.attachments).also { isSent -> if (isSent) textToSend = null }
     }
 
     private fun sendPhotoOrVideo(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
@@ -54,7 +57,7 @@ class TgApi(tgToken: String) {
                 else -> throw IllegalArgumentException("Unsupported attachment type: ${attachment.javaClass.name}")
             }
         } else {
-            sendMediaGroup(chatId, textToSend, attachments)
+            sendMediaGroup(chatId, textToSend, photosAndVideos)
         }
         return true
     }
@@ -68,18 +71,7 @@ class TgApi(tgToken: String) {
                 else -> throw IllegalArgumentException("Unsupported attachment type: ${it.javaClass.name}")
             }
         }.let { MediaGroup.from(*it.toTypedArray()) }
-        bot.sendMediaGroup(chatId, mediaGroup).onError { throw it.toException() }
-    }
-
-    private fun sendMessage(chatId: ChatId, text: String?) {
-        if (!text.isNullOrBlank()) {
-            bot.sendMessage(chatId, text).onError { throw it.toException() }
-        }
-    }
-
-    private fun TelegramBotResult.Error.toException() = when (this) {
-        is TelegramBotResult.Error.Unknown -> TelegramApiException(cause = exception)
-        else -> TelegramApiException(this.toString())
+        handleError(bot.sendMediaGroup(chatId, mediaGroup))
     }
 
     private fun sendGif(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
@@ -94,12 +86,6 @@ class TgApi(tgToken: String) {
         return true
     }
 
-    private fun sendPhoto(chatId: ChatId, photo: Attachment.Photo, text: String?) =
-        handleError(bot.sendPhoto(chatId, TelegramFile.ByUrl(photo.url), text))
-
-    private fun sendVideo(chatId: ChatId, video: Attachment.Video, text: String?) =
-        handleError(bot.sendVideo(chatId, TelegramFile.ByFile(video.data), caption = text))
-
     private fun sendGif(chatId: ChatId, gif: Attachment.Gif) {
         try {
             handleError(bot.sendAnimation(chatId, TelegramFile.ByUrl(gif.url)))
@@ -108,6 +94,54 @@ class TgApi(tgToken: String) {
             handleError(bot.sendVideo(chatId, TelegramFile.ByByteArray(gif.data)))
         }
     }
+
+    private fun sendAudio(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
+        val audios = attachments.filterIsInstance<Attachment.Audio>()
+        if (audios.isEmpty()) {
+            return false
+        }
+        if (text != null) {
+            sendMessage(chatId, text)
+        }
+        if (audios.size == 1) {
+            val audio = audios.first()
+            handleError(
+                bot.sendAudio(chatId, TelegramFile.ByUrl(audio.url), audio.duration, audio.artist, audio.title)
+            )
+        } else {
+            val mediaGroup = audios.map {
+                InputMediaAudio(
+                    TelegramFile.ByUrl(it.url),
+                    duration = it.duration,
+                    performer = it.artist,
+                    title = it.title
+                )
+            }.let { MediaGroup.from(*it.toTypedArray()) }
+            handleError(bot.sendMediaGroup(chatId, mediaGroup))
+        }
+        return true
+    }
+
+    private fun sendMessage(chatId: ChatId, text: String?) {
+        if (!text.isNullOrBlank()) {
+            handleError(bot.sendMessage(chatId, text))
+        }
+    }
+
+    private fun handleError(callResult: TelegramBotResult<Any>) {
+        callResult.onError {
+            throw when (it) {
+                is TelegramBotResult.Error.Unknown -> TelegramApiException(cause = it.exception)
+                else -> TelegramApiException(this.toString())
+            }
+        }
+    }
+
+    private fun sendPhoto(chatId: ChatId, photo: Attachment.Photo, text: String?) =
+        handleError(bot.sendPhoto(chatId, TelegramFile.ByUrl(photo.url), text))
+
+    private fun sendVideo(chatId: ChatId, video: Attachment.Video, text: String?) =
+        handleError(bot.sendVideo(chatId, TelegramFile.ByFile(video.data), caption = text))
 
     private fun handleError(callResult: Pair<Any?, Exception?>) {
         val errorBody: String? = if (callResult.first == null) {
