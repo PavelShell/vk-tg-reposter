@@ -102,7 +102,7 @@ class TgApi(tgToken: String) {
 
     private fun sendGif(chatId: ChatId, gif: Attachment.Gif) {
         try {
-            handleError(bot.sendAnimation(chatId, TelegramFile.ByByteArray(gif.data)))
+            handleError(bot.sendAnimation(chatId, TelegramFile.ByUrl(gif.url)))
         } catch (e: TelegramApiException) {
             logger.debug("Can't send gif with id={} as animation, will send as video", gif.vkId)
             handleError(bot.sendVideo(chatId, TelegramFile.ByByteArray(gif.data)))

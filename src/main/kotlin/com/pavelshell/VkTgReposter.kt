@@ -40,7 +40,8 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
         } else if (WallpostAttachmentType.VIDEO == type) {
             Attachment.Video(vkApi.tryDownloadVideo(video, TgApi.MAX_FILE_SIZE_MB) ?: return null)
         } else if (WallpostAttachmentType.DOC == type && GIF_DOCUMENT_CODE == doc.type) {
-            Attachment.Gif(vkApi.tryDownloadDocument(doc, TgApi.MAX_FILE_SIZE_MB) ?: return null, doc.id)
+            val (url, bytes) = vkApi.tryDownloadDocument(doc, TgApi.MAX_FILE_SIZE_MB) ?: return null
+            Attachment.Gif(bytes, url.toString(), doc.id)
         } else {
             logger.debug("Can't convert unsupported attachment: {}.", this)
             null

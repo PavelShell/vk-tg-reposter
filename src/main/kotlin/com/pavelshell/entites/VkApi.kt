@@ -71,9 +71,10 @@ class VkApi(appId: Int, accessToken: String) {
      * Tries to download the [document].
      * Returns null in case of failure or if document size is bigger than [maxSizeMb].
      */
-    fun tryDownloadDocument(document: Doc, maxSizeMb: Int = 0): ByteArray? {
-        val bytes = document.url.toURL().followRedirect().readBytes()
-        return if (bytes.size > maxSizeMb * 1_048_576L) null else bytes
+    fun tryDownloadDocument(document: Doc, maxSizeMb: Int = 0): Pair<URL, ByteArray>? {
+        val url = document.url.toURL().followRedirect()
+        val bytes = url.readBytes()
+        return if (bytes.size > maxSizeMb * 1_048_576L) null else url to bytes
     }
 
     private fun URL.followRedirect(): URL {
