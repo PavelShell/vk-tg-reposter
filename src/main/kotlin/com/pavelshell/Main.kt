@@ -1,19 +1,24 @@
 package com.pavelshell
 
-import com.github.kotlintelegrambot.bot
-import com.pavelshell.entites.VkApi
-import com.pavelshell.models.Attachment
-import com.pavelshell.models.Publication
-import com.vk.api.sdk.objects.wall.PostType
-import com.vk.api.sdk.objects.wall.WallItem
-import com.vk.api.sdk.objects.wall.WallpostAttachment
-import com.vk.api.sdk.objects.wall.WallpostAttachmentType
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneOffset
+import kotlin.system.exitProcess
 
 fun main() {
-    VkTgReposter(System.getenv("VK_APP_ID").toInt(), System.getenv("VK_SERVICE_ACCESS_TOKEN"), System.getenv("TG_BOT_TOKEN"))
-        .duplicatePostsFromVkGroup(listOf("club221726964" to "@AnimeSagesSociety"))
-}
+    val vkAppId = System.getenv("VK_APP_ID")?.toInt() ?: throw IllegalArgumentException("VK_APP_ID is not set")
 
+    val vkAccessToken = System.getenv("VK_SERVICE_ACCESS_TOKEN")
+        ?: throw IllegalArgumentException("VK_SERVICE_ACCESS_TOKEN is not set")
+
+    val tgToken = System.getenv("TG_BOT_TOKEN") ?: throw IllegalArgumentException("TG_BOT_TOKEN is not set")
+
+    val (vkGroup, tgChannel) = (System.getenv("VK_GROUP_TO_TG_CHANNEL")
+        ?: throw IllegalArgumentException("VK_GROUP_TO_TG_CHANNEL is not set"))
+        .split(" ")
+        .also {
+            if (it.size != 2) {
+                throw IllegalArgumentException("VK_GROUP_TO_TG_CHANNEL should be in format 'vk_group_id tg_channel_id'")
+            }
+        }
+
+    VkTgReposter(vkAppId, vkAccessToken, tgToken).duplicatePostsFromVkGroup(listOf(vkGroup to tgChannel))
+    exitProcess(0)
+}
