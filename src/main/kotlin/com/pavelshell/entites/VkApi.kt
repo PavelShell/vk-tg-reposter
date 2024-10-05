@@ -93,11 +93,12 @@ class VkApi(appId: Int, accessToken: String) {
      * Tries to download the [video].
      * Returns null in case of failure or if video size is bigger than [maxSizeMb].
      */
-    fun tryDownloadVideo(video: Video, maxSizeMb: Int = 0): File? {
+    fun tryDownloadVideo(id: Long, ownerId: Long, maxSizeMb: Int = 0): File? {
         // TODO: supports_streaming?
-        val url = "https://vk.com/video${video.ownerId}_${video.id}"
+        // TODO: content_restricted (vk) - check if unavaliable?
+        val url = "https://vk.com/video${ownerId}_${id}"
         // TODD: make sure that file is get deleted
-        val videoFile = File("${video.ownerId}_${video.id}").apply { deleteOnExit() }
+        val videoFile = File("${ownerId}_${id}").apply { deleteOnExit() }
         val request = YtDlpRequest(url).apply {
             setOption("max-filesize", "${maxSizeMb}M")
             setOption("format", "best[height<=720]")
@@ -112,6 +113,11 @@ class VkApi(appId: Int, accessToken: String) {
             return null
         }
     }
+
+    /**
+     * Exception that is thrown when request to VKontakte API is failed.
+     */
+    class VkontakteApiException(msg: String? = null, cause: Throwable? = null) : Exception(msg, cause)
 
     private companion object {
 

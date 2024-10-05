@@ -66,7 +66,7 @@ class TgApi(tgToken: String) {
             val caption = if (index == 0) text else null
             when (it) {
                 is Attachment.Photo -> InputMediaPhoto(TelegramFile.ByUrl(it.url), caption)
-                is Attachment.Video -> InputMediaVideo(TelegramFile.ByFile(it.data), caption)
+                is Attachment.Video -> InputMediaVideo(TelegramFile.ByFile(it.data), caption, duration = it.duration)
                 else -> throw IllegalArgumentException("Unsupported attachment type: ${it.javaClass.name}")
             }
         }.let { MediaGroup.from(*it.toTypedArray()) }
@@ -95,19 +95,20 @@ class TgApi(tgToken: String) {
     }
 
     private fun sendAudio(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
-        // TODO: send with caption
         val audios = attachments.filterIsInstance<Attachment.Audio>()
         if (audios.isEmpty()) {
             return false
         }
-        if (text != null && audios.size > 1) {
+        if (text != null) {
             sendMessage(chatId, text)
         }
-        audios.forEach {
-            handleError(bot.sendAudio(chatId, TelegramFile.ByByteArray(it.data), it.duration, it.artist, it.title))
-        }
+        audios.forEach { sendAudio(chatId, it) }
         return true
     }
+
+    private fun sendAudio(chatId: ChatId, audio: Attachment.Audio) = handleError(
+        bot.sendAudio(chatId, TelegramFile.ByByteArray(audio.data), audio.duration, audio.artist, audio.title)
+    )
 
     private fun sendMessage(chatId: ChatId, text: String?) {
         if (!text.isNullOrBlank()) {
@@ -127,14 +128,14 @@ class TgApi(tgToken: String) {
     private fun sendPhoto(chatId: ChatId, photo: Attachment.Photo, text: String?) =
         handleError(bot.sendPhoto(chatId, TelegramFile.ByUrl(photo.url), text))
 
-    private fun sendVideo(chatId: ChatId, video: Attachment.Video, text: String?) =
-        handleError(bot.sendVideo(chatId, TelegramFile.ByFile(video.data), caption = text))
+    private fun sendVideo(chatId: ChatId, video: Attachment.Video, caption: String?) =
+        handleError(bot.sendVideo(chatId, TelegramFile.ByFile(video.data), video.duration, caption = caption))
 
     private fun handleError(callResult: Pair<Any?, Exception?>) {
         val errorBody: String? = if (callResult.first == null) {
             null
         } else {
-            // I know this is unwise, but another solution will be importing of the whole retrofit library.
+            // I know this is unwise, but another solution will be importing of the whole Retrofit library.
             val errorBody = callFunctionWithName(callResult.first, "errorBody")
             callFunctionWithName(errorBody, "string")?.toString()
         }
@@ -147,13 +148,12 @@ class TgApi(tgToken: String) {
         }
     }
 
-    private fun callFunctionWithName(instance: Any?, name: String): Any? {
-        return if (instance == null) {
+    private fun callFunctionWithName(instance: Any?, name: String): Any? =
+        if (instance == null) {
             null
         } else {
             instance::class.memberFunctions.find { it.name == name }?.call(instance)
         }
-    }
 
     /**
      * Exception that is thrown when request to Telegram API is failed.

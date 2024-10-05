@@ -38,7 +38,8 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
         return if (WallpostAttachmentType.PHOTO == type) {
             Attachment.Photo(vkApi.getPhotoUrl(photo).toString())
         } else if (WallpostAttachmentType.VIDEO == type) {
-            Attachment.Video(vkApi.tryDownloadVideo(video, TgApi.MAX_FILE_SIZE_MB) ?: return null)
+            val file = vkApi.tryDownloadVideo(video.id.toLong(), video.ownerId, TgApi.MAX_FILE_SIZE_MB) ?: return null
+            Attachment.Video(file, video.duration)
         } else if (WallpostAttachmentType.DOC == type && GIF_DOCUMENT_CODE == doc.type) {
             val (url, bytes) = vkApi.tryDownloadFile(doc.url, TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Gif(bytes, url.toString(), doc.id)
@@ -46,7 +47,7 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
             val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Audio(bytes, audio.artist, audio.title, audio.duration)
         } else {
-            logger.debug("Can't convert unsupported attachment: {}.", this)
+            logger.debug("Skipping conversion of unsupported attachment: {}.", this)
             null
         }
     }

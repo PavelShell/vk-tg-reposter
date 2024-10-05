@@ -9,7 +9,7 @@ sealed class Attachment {
 
     data class Photo(val url: String) : Attachment()
 
-    data class Video(val data: File) : Attachment()
+    data class Video(val data: File, val duration: Int) : Attachment()
 
     data class Gif(val data: ByteArray, val url: String, val vkId: Int) : Attachment() {
 
@@ -38,7 +38,7 @@ sealed class Attachment {
         }
     }
 
-    data class Audio(val data: ByteArray, val artist: String?, val title: String?, val duration: Int?) : Attachment() {
+    data class Audio(val data: ByteArray, val artist: String, val title: String, val duration: Int) : Attachment() {
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -56,8 +56,8 @@ sealed class Attachment {
 
         override fun hashCode(): Int {
             var result = data.contentHashCode()
-            result = 31 * result + (artist?.hashCode() ?: 0)
-            result = 31 * result + (title?.hashCode() ?: 0)
+            result = 31 * result + (artist.hashCode() ?: 0)
+            result = 31 * result + (title.hashCode() ?: 0)
             result = 31 * result + (duration ?: 0)
             return result
         }
