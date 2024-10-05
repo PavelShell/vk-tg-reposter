@@ -28,7 +28,6 @@ class VkApi(appId: Int, accessToken: String) {
      * Returned posts are sorted by creation date ascending.
      */
     fun getWallPostsFrom(timePoint: Instant, domain: String): List<WallItem> {
-//        return vkApi.wall().getById(service, "-221726964_2239").execute().items
         logger.info("Fetching wall posts from VK API for $domain starting from $timePoint")
         var offset = 0
         var wallPostsSlice = getWallPostsSlice(domain, offset, AVERAGE_NEW_POSTS_COUNT).also {
