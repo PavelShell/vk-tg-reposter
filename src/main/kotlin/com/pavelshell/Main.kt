@@ -11,16 +11,14 @@ fun main() {
 
     val tgToken = envVariables["TG_BOT_TOKEN"] ?: throw IllegalArgumentException("TG_BOT_TOKEN is not set")
 
-    val (vkGroup, tgChannel) = (envVariables["VK_GROUP_TO_TG_CHANNEL"]
+    val channelsToGroups = (envVariables["VK_GROUP_TO_TG_CHANNEL"]
         ?: throw IllegalArgumentException("VK_GROUP_TO_TG_CHANNEL is not set"))
-        .split(" ")
-        .also {
-            if (it.size != 2) {
-                throw IllegalArgumentException("VK_GROUP_TO_TG_CHANNEL should be in format 'vk_group_id tg_channel_id'")
-            }
+        .split(", ")
+        .map {
+            val (vkGroup, tgChannel) = it.split(" ")
+            vkGroup to tgChannel
         }
-
-    VkTgReposter(vkAppId, vkAccessToken, tgToken).duplicatePostsFromVkGroup(listOf(vkGroup to tgChannel))
+    VkTgReposter(vkAppId, vkAccessToken, tgToken).duplicatePostsFromVkGroup(channelsToGroups)
 
     exitProcess(0)
 }
