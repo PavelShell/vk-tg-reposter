@@ -18,8 +18,6 @@ class TgApi(tgToken: String) {
         token = tgToken
     }
 
-    private val logger = LoggerFactory.getLogger(TgApi::class.java)
-
     /**
      * Sends [publication] to the [specified][channelId] channel.
      *
@@ -167,6 +165,8 @@ class TgApi(tgToken: String) {
         private const val MAX_CAPTION_SIZE = 1024
 
         private const val MAX_MESSAGE_SIZE = 4096
+
+        private val logger = LoggerFactory.getLogger(TgApi::class.java)
     }
 }
 

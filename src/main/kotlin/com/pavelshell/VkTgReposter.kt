@@ -1,5 +1,6 @@
 package com.pavelshell
 
+import com.pavelshell.entites.FileStorage
 import com.pavelshell.entites.TgApi
 import com.pavelshell.entites.VkApi
 import com.pavelshell.models.Attachment
@@ -9,30 +10,51 @@ import com.vk.api.sdk.objects.wall.WallpostAttachment
 import com.vk.api.sdk.objects.wall.WallpostAttachmentType
 import org.slf4j.LoggerFactory
 import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 
 class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
-    //TODO: error handling
     private val vkApi = VkApi(vkAppId, vkAccessToken)
 
     private val tgBot = TgApi(tgToken)
-
-    private val logger = LoggerFactory.getLogger(VkTgReposter::class.java)
 
     fun duplicatePostsFromVkGroup(vkGroupsToTgChannels: List<Pair<String, String>>) =
         vkGroupsToTgChannels.forEach { duplicatePostsFromVkGroup(it.first, it.second) }
 
     private fun duplicatePostsFromVkGroup(vkGroupDomain: String, tgChannelId: String) {
-        val fromDate = Instant.ofEpochSecond(LocalDateTime.of(2024, 9, 30, 0, 0, 0).toEpochSecond(ZoneOffset.UTC))
-        vkApi.getWallPostsFrom(fromDate, vkGroupDomain)
-            .asSequence()
-            .mapNotNull { it.toPublicationOrNullIfNotSupported() }
-            .forEach { tgBot.publish(tgChannelId, it) }
+        logger.info("Starting the job for [vkGroupDomain=$vkGroupDomain, tgChannelId=$tgChannelId]")
+        var lastPublicationTimestamp: Int? = null
+        try {
+            vkApi.getWallPostsFrom(getTimeOfLastPublishedPost(vkGroupDomain), vkGroupDomain).forEach { wallItem ->
+                logger.info("Publishing wall item $wallItem")
+                wallItem.toPublicationOrNullIfNotSupported()?.let { tgBot.publish(tgChannelId, it) }
+                lastPublicationTimestamp = wallItem.date
+            }
+        } catch (e: Exception) {
+            logger.error("Job failed with the following error", e)
+            FileStorage.set(vkGroupDomain, lastPublicationTimestamp.toString())
+        }
     }
 
-    private fun WallItem.toPublicationOrNullIfNotSupported(): Publication? =
-        Publication(text, attachments.map { it.toDomainAttachmentOrNullIfNotSupported() ?: return null })
+    private fun getTimeOfLastPublishedPost(vkGroupDomain: String): Instant {
+        return FileStorage.get(vkGroupDomain)?.let { Instant.ofEpochSecond(it.toLong()) }
+            ?: getTimeOfLastPublishedPostFromEnv(vkGroupDomain)
+            ?: Instant.MIN
+    }
+
+    private fun getTimeOfLastPublishedPostFromEnv(vkGroupDomain: String): Instant? {
+        val key = "LAST_PUBLICATION_UNIX_TIMESTAMP_$vkGroupDomain"
+        return System.getenv(key)
+            ?.let {
+                runCatching { it.toLong() }
+                    .getOrNull()
+                    ?: throw IllegalArgumentException("$key environment variable $it is not a number")
+            }
+            ?.let { Instant.ofEpochSecond(it) }
+    }
+
+    private fun WallItem.toPublicationOrNullIfNotSupported(): Publication? {
+        val attachments = attachments.map { it.toDomainAttachmentOrNullIfNotSupported() ?: return null }
+        return Publication(text, attachments)
+    }
 
     private fun WallpostAttachment.toDomainAttachmentOrNullIfNotSupported(): Attachment? {
         return if (WallpostAttachmentType.PHOTO == type) {
@@ -55,5 +77,8 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
     companion object {
 
         private const val GIF_DOCUMENT_CODE = 3
+
+        private val logger = LoggerFactory.getLogger(VkTgReposter::class.java)
+
     }
 }

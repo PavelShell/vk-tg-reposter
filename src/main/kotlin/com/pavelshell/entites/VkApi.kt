@@ -23,30 +23,29 @@ class VkApi(appId: Int, accessToken: String) {
 
     private val service = ServiceActor(appId, accessToken)
 
-    private val logger = LoggerFactory.getLogger(VkApi::class.java)
-
     /**
-     * Returns list of wall posts created after [timePoint] for user or community with [domain].
+     * Returns list of wall posts created after [timePoint] for a user or community with [domain].
      * Returned posts are sorted by creation date ascending.
      */
     fun getWallPostsFrom(timePoint: Instant, domain: String): List<WallItem> {
-        return vkApi.wall().getById(service, "-99604643_51").execute().items
-//        var offset = 0
-//        var wallPostsSlice = getWallPostsSlice(domain, offset, AVERAGE_NEW_POSTS_COUNT).also {
-//            if (it.isEmpty()) logger.warn("0 posts were found for domain $domain")
-//        }
-//        val result: MutableList<WallItem> = mutableListOf()
-//        while (wallPostsSlice.isNotEmpty()) {
-//            val newPosts = wallPostsSlice.takeWhile { timePoint.epochSecond < it.date }
-//            result.addAll(newPosts)
-//            val areAllNePostsFound = newPosts.size != wallPostsSlice.size
-//            if (areAllNePostsFound) {
-//                break
-//            }
-//            offset += newPosts.size
-//            wallPostsSlice = getWallPostsSlice(domain, offset, MAX_WALL_POSTS_PER_REQUEST)
-//        }
-//        return result.reversed()
+//        return vkApi.wall().getById(service, "-221726964_2239").execute().items
+        logger.info("Fetching wall posts from VK API for $domain starting from $timePoint")
+        var offset = 0
+        var wallPostsSlice = getWallPostsSlice(domain, offset, AVERAGE_NEW_POSTS_COUNT).also {
+            if (it.isEmpty()) logger.warn("0 posts were found for domain $domain")
+        }
+        val result: MutableList<WallItem> = mutableListOf()
+        while (wallPostsSlice.isNotEmpty()) {
+            val newPosts = wallPostsSlice.takeWhile { timePoint.epochSecond < it.date }
+            result.addAll(newPosts)
+            val areAllNePostsFound = newPosts.size != wallPostsSlice.size
+            if (areAllNePostsFound) {
+                break
+            }
+            offset += newPosts.size
+            wallPostsSlice = getWallPostsSlice(domain, offset, MAX_WALL_POSTS_PER_REQUEST)
+        }
+        return result.reversed()
     }
 
     private fun getWallPostsSlice(domain: String, offset: Int, count: Int): List<WallItem> = vkApi.wall().get(service)
@@ -94,10 +93,7 @@ class VkApi(appId: Int, accessToken: String) {
      * Returns null in case of failure or if video size is bigger than [maxSizeMb].
      */
     fun tryDownloadVideo(id: Long, ownerId: Long, maxSizeMb: Int = 0): File? {
-        // TODO: supports_streaming?
-        // TODO: content_restricted (vk) - check if unavaliable?
         val url = "https://vk.com/video${ownerId}_${id}"
-        // TODD: make sure that file is get deleted
         val videoFile = File("${ownerId}_${id}").apply { deleteOnExit() }
         val request = YtDlpRequest(url).apply {
             setOption("max-filesize", "${maxSizeMb}M")
@@ -114,15 +110,12 @@ class VkApi(appId: Int, accessToken: String) {
         }
     }
 
-    /**
-     * Exception that is thrown when request to VKontakte API is failed.
-     */
-    class VkontakteApiException(msg: String? = null, cause: Throwable? = null) : Exception(msg, cause)
-
     private companion object {
 
         const val MAX_WALL_POSTS_PER_REQUEST = 100
 
         const val AVERAGE_NEW_POSTS_COUNT = 10
+
+        private val logger = LoggerFactory.getLogger(VkApi::class.java)
     }
 }

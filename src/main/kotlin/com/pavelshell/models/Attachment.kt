@@ -11,7 +11,7 @@ sealed class Attachment {
 
     data class Video(val data: File, val duration: Int) : Attachment()
 
-    data class Gif(val data: ByteArray, val url: String, val vkId: Int) : Attachment() {
+    class Gif(val data: ByteArray, val url: String, val vkId: Int) : Attachment() {
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -38,7 +38,7 @@ sealed class Attachment {
         }
     }
 
-    data class Audio(val data: ByteArray, val artist: String, val title: String, val duration: Int) : Attachment() {
+    class Audio(val data: ByteArray, val artist: String, val title: String, val duration: Int) : Attachment() {
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
