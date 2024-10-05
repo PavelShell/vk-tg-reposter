@@ -52,6 +52,10 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
     }
 
     private fun WallItem.toPublicationOrNullIfNotSupported(): Publication? {
+        val isRepost = !copyHistory.isNullOrEmpty()
+        if (isRepost) {
+            return null
+        }
         val attachments = attachments.map { it.toDomainAttachmentOrNullIfNotSupported() ?: return null }
         return Publication(text, attachments)
     }
