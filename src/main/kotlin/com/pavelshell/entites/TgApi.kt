@@ -24,6 +24,8 @@ class TgApi(tgToken: String) {
      * @throws TelegramApiException
      */
     fun publish(channelId: String, publication: Publication) {
+        // TODO: delete publication if one of messages wasn't delivered
+        // Сначала картинку потом текст
         logger.trace("publishing {}", publication)
         if (publication.text != null && publication.text.length > MAX_MESSAGE_SIZE) {
             return

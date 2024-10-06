@@ -7,7 +7,6 @@ import com.vk.api.sdk.client.VkApiClient
 import com.vk.api.sdk.client.actors.ServiceActor
 import com.vk.api.sdk.httpclient.HttpTransportClient
 import com.vk.api.sdk.objects.photos.Photo
-import com.vk.api.sdk.objects.video.Video
 import com.vk.api.sdk.objects.wall.GetFilter
 import com.vk.api.sdk.objects.wall.WallItem
 import org.slf4j.LoggerFactory
@@ -35,10 +34,12 @@ class VkApi(appId: Int, accessToken: String) {
         }
         val result: MutableList<WallItem> = mutableListOf()
         while (wallPostsSlice.isNotEmpty()) {
-            val newPosts = wallPostsSlice.takeWhile { timePoint.epochSecond < it.date }
-            result.addAll(newPosts)
-            val areAllNePostsFound = newPosts.size != wallPostsSlice.size
-            if (areAllNePostsFound) {
+            var areAllNewPostsFound = false
+            val newPosts = wallPostsSlice
+                .filter { !it.isPinned() }
+                .takeWhile { (timePoint.epochSecond < it.date).also { areAllNewPostsFound = true } }
+            result.addAll(newPosts.filter { !it.isPinned() })
+            if (areAllNewPostsFound) {
                 break
             }
             offset += newPosts.size

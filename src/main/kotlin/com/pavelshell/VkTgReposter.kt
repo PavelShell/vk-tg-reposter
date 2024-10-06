@@ -33,6 +33,7 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
         } finally {
             lastPublicationTimestamp?.let { FileStorage.set(vkGroupDomain, it.toString()) }
         }
+        logger.info("Job finished successfully for [vkGroupDomain=$vkGroupDomain, tgChannelId=$tgChannelId]")
     }
 
     private fun getTimeOfLastPublishedPost(vkGroupDomain: String): Instant {
@@ -62,6 +63,7 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
     }
 
     private fun WallpostAttachment.toDomainAttachmentOrNullIfNotSupported(): Attachment? {
+        // just ignore links
         return if (WallpostAttachmentType.PHOTO == type) {
             val (url, bytes) = vkApi.tryDownloadFile(vkApi.getPhotoUrl(photo), TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Photo(url.toString(), bytes, photo.id)
