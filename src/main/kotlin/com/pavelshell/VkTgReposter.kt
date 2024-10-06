@@ -63,7 +63,8 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
 
     private fun WallpostAttachment.toDomainAttachmentOrNullIfNotSupported(): Attachment? {
         return if (WallpostAttachmentType.PHOTO == type) {
-            Attachment.Photo(vkApi.getPhotoUrl(photo).toString())
+            val (url, bytes) = vkApi.tryDownloadFile(vkApi.getPhotoUrl(photo), TgApi.MAX_FILE_SIZE_MB) ?: return null
+            Attachment.Photo(url.toString(), bytes, photo.id)
         } else if (WallpostAttachmentType.VIDEO == type) {
             val file = vkApi.tryDownloadVideo(video.id.toLong(), video.ownerId, TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Video(file, video.duration)

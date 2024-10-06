@@ -58,17 +58,16 @@ class VkApi(appId: Int, accessToken: String) {
     /**
      * Returns ULR of the [photo] of size up to 2560x2048px.
      */
-    fun getPhotoUrl(photo: Photo): URL = photo.sizes.toMutableList()
+    fun getPhotoUrl(photo: Photo): URI = photo.sizes.toMutableList()
         .apply { sortBy { it.height + it.width } }
         .last()
         .url
-        .toURL()
 
     /**
      * Tries to download the file located at [vkFileUrl].
      * Returns null in case of failure or if file size is bigger than [maxSizeMb].
      */
-    fun tryDownloadFile(vkFileUrl: URI, maxSizeMb: Int = 0): Pair<URL, ByteArray>? {
+    fun tryDownloadFile(vkFileUrl: URI, maxSizeMb: Int = Int.MAX_VALUE): Pair<URL, ByteArray>? {
         if (vkFileUrl.toString().isEmpty()) {
             // file is blocked
             return null
@@ -91,7 +90,7 @@ class VkApi(appId: Int, accessToken: String) {
      * Tries to download the [video].
      * Returns null in case of failure or if video size is bigger than [maxSizeMb].
      */
-    fun tryDownloadVideo(id: Long, ownerId: Long, maxSizeMb: Int = 0): File? {
+    fun tryDownloadVideo(id: Long, ownerId: Long, maxSizeMb: Int = Int.MAX_VALUE): File? {
         val url = "https://vk.com/video${ownerId}_${id}"
         val videoFile = File("${ownerId}_${id}").apply { deleteOnExit() }
         val request = YtDlpRequest(url).apply {

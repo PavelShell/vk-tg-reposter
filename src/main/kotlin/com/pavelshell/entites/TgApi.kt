@@ -123,8 +123,14 @@ class TgApi(tgToken: String) {
         }
     }
 
-    private fun sendPhoto(chatId: ChatId, photo: Attachment.Photo, text: String?) =
-        handleError(bot.sendPhoto(chatId, TelegramFile.ByUrl(photo.url), text))
+    private fun sendPhoto(chatId: ChatId, photo: Attachment.Photo, text: String?) {
+        try {
+            handleError(bot.sendPhoto(chatId, TelegramFile.ByUrl(photo.url), text))
+        } catch (e: TelegramApiException) {
+            logger.debug("Can't send photo with id={} as animation, will send as video", photo.vkId)
+            handleError(bot.sendPhoto(chatId, TelegramFile.ByByteArray(photo.data), text))
+        }
+    }
 
     private fun sendVideo(chatId: ChatId, video: Attachment.Video, caption: String?) =
         handleError(bot.sendVideo(chatId, TelegramFile.ByFile(video.data), video.duration, caption = caption))
