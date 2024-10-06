@@ -1,13 +1,18 @@
 package com.pavelshell.entites
 
 import java.io.File
+import kotlin.io.path.createParentDirectories
 
 /**
  * Simple file-based storage.
  */
 object FileStorage {
 
-    private val lastPublicationDatesFile = File("storage").also { it.createNewFile() }
+    private val lastPublicationDatesFile = File("vk-tg-reposter-storage/storage")
+        .also {
+            it.toPath().createParentDirectories()
+            it.createNewFile()
+        }
 
     /**
      * Returns value for a [key] if it exists.

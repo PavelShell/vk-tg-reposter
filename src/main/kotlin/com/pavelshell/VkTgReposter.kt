@@ -30,7 +30,8 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
             }
         } catch (e: Exception) {
             logger.error("Job failed with the following error", e)
-            FileStorage.set(vkGroupDomain, lastPublicationTimestamp.toString())
+        } finally {
+            lastPublicationTimestamp?.let { FileStorage.set(vkGroupDomain, it.toString()) }
         }
     }
 
