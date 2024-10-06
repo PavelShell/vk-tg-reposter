@@ -101,7 +101,7 @@ class VkApi(appId: Int, accessToken: String) {
         }
         try {
             YtDlp.execute(request)
-            return videoFile
+            return videoFile.also { if (!it.exists()) return null }
         } catch (e: YtDlpException) {
             logger.warn("Unable to download video from $url", e)
             return null
