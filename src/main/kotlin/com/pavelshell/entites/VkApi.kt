@@ -29,15 +29,18 @@ class VkApi(appId: Int, accessToken: String) {
     fun getWallPostsFrom(timePoint: Instant, domain: String): List<WallItem> {
         logger.info("Fetching wall posts from VK API for $domain starting from $timePoint")
         var offset = 0
-        var wallPostsSlice = getWallPostsSlice(domain, offset, AVERAGE_NEW_POSTS_COUNT).also {
-            if (it.isEmpty()) logger.warn("0 posts were found for domain $domain")
-        }
+        var wallPostsSlice = getWallPostsSlice(domain, offset, AVERAGE_NEW_POSTS_COUNT)
+            .toMutableList()
+            .also {
+                if (it.isEmpty()) logger.warn("0 posts were found for domain $domain")
+                if (it.isNotEmpty() && it[0].isPinned()) it.removeFirst()
+            }
+            .toList()
         val result: MutableList<WallItem> = mutableListOf()
         while (wallPostsSlice.isNotEmpty()) {
             var areAllNewPostsFound = false
-            val newPosts = wallPostsSlice
-                .filter { !it.isPinned() }
-                .takeWhile { (timePoint.epochSecond < it.date).also { areAllNewPostsFound = true } }
+            val newPosts =
+                wallPostsSlice.takeWhile { (timePoint.epochSecond < it.date).also { areAllNewPostsFound = !it } }
             result.addAll(newPosts.filter { !it.isPinned() })
             if (areAllNewPostsFound) {
                 break
