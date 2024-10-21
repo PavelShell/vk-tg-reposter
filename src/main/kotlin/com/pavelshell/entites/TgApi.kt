@@ -25,7 +25,9 @@ class TgApi(tgToken: String) {
      */
     fun publish(channelId: String, publication: Publication) {
         // TODO: delete publication if one of messages wasn't delivered
-        // Сначала картинку потом текст
+        // TODO: can't post if chat ID shanges
+        // TODO: Improve tracking of what was posted and what not
+        // TODO: Track logs remotely
         logger.trace("publishing {}", publication)
         if (publication.text != null && publication.text.length > MAX_MESSAGE_SIZE) {
             return
@@ -118,10 +120,20 @@ class TgApi(tgToken: String) {
 
     private fun handleError(callResult: TelegramBotResult<Any>) {
         callResult.onError {
-            throw when (it) {
+            val exception = when (it) {
                 is TelegramBotResult.Error.Unknown -> TelegramApiException(cause = it.exception)
-                else -> TelegramApiException(it.toString())
+                else -> {
+                    // fix by getting photos by actual URL
+                    val isTgUnableToAccessResource = it.toString().contains("WEBPAGE_MEDIA_EMPTY")
+                    if (isTgUnableToAccessResource) {
+                        logger.warn("Unable to send message with the following error: $it}")
+                        null
+                    } else {
+                        TelegramApiException(it.toString())
+                    }
+                }
             }
+            exception?.let { e -> throw e }
         }
     }
 
@@ -168,6 +180,9 @@ class TgApi(tgToken: String) {
 
     companion object {
 
+        /**
+         * Maximum size of file that can be uploaded by API.
+         */
         const val MAX_FILE_SIZE_MB = 50
 
         private const val MAX_CAPTION_SIZE = 1024
@@ -177,4 +192,3 @@ class TgApi(tgToken: String) {
         private val logger = LoggerFactory.getLogger(TgApi::class.java)
     }
 }
-
