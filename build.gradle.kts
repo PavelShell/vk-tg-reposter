@@ -14,7 +14,8 @@ dependencies {
     implementation("com.vk.api:sdk:1.0.16")
     implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.2.0")
     implementation("com.github.jfposton:yt-dlp-java:v2.0.3")
-    implementation("org.slf4j:slf4j-log4j12:2.0.16")
+    implementation("org.slf4j:slf4j-api:2.0.16")
+    implementation("ch.qos.logback:logback-classic:1.5.12")
     implementation(kotlin("reflect"))
 }
 

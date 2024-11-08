@@ -16,6 +16,7 @@ class TgApi(tgToken: String) {
 
     private val bot = bot {
         token = tgToken
+        timeout = 45
     }
 
     /**
@@ -25,11 +26,12 @@ class TgApi(tgToken: String) {
      */
     fun publish(channelId: String, publication: Publication) {
         // TODO: delete publication if one of messages wasn't delivered
-        // TODO: can't post if chat ID shanges
+        // TODO: can't post if chat ID changes
         // TODO: Improve tracking of what was posted and what not
         // TODO: Track logs remotely
-        logger.trace("publishing {}", publication)
-        if (publication.text != null && publication.text.length > MAX_MESSAGE_SIZE) {
+        // TODO: Move image to top of publication
+        logger.debug("publishing {}", publication)
+        if (publication.text != null && publication.text.length > MAX_MESSAGE_TEXT_SIZE) {
             return
         }
         val chatId = ChatId.fromChannelUsername(channelId)
@@ -123,7 +125,8 @@ class TgApi(tgToken: String) {
             val exception = when (it) {
                 is TelegramBotResult.Error.Unknown -> TelegramApiException(cause = it.exception)
                 else -> {
-                    // fix by getting photos by actual URL
+                    // This error happens sometimes and can persist for more than several hours.
+                    // I assume it caused by TG servers misbehavior.
                     val isTgUnableToAccessResource = it.toString().contains("WEBPAGE_MEDIA_EMPTY")
                     if (isTgUnableToAccessResource) {
                         logger.warn("Unable to send message with the following error: $it}")
@@ -185,9 +188,12 @@ class TgApi(tgToken: String) {
          */
         const val MAX_FILE_SIZE_MB = 50
 
-        private const val MAX_CAPTION_SIZE = 1024
+        /**
+         * Maximum text length that can be sent in a single message.
+         */
+        const val MAX_MESSAGE_TEXT_SIZE = 4096
 
-        private const val MAX_MESSAGE_SIZE = 4096
+        private const val MAX_CAPTION_SIZE = 1024
 
         private val logger = LoggerFactory.getLogger(TgApi::class.java)
     }
