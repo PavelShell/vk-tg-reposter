@@ -28,7 +28,6 @@ class TgApi(tgToken: String) {
         // TODO: delete publication if one of messages wasn't delivered
         // TODO: can't post if chat ID changes
         // TODO: Improve tracking of what was posted and what not
-        // TODO: Track logs remotely
         // TODO: Move image to top of publication
         logger.debug("publishing {}", publication)
         if (publication.text != null && publication.text.length > MAX_MESSAGE_TEXT_SIZE) {

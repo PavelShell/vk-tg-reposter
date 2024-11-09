@@ -66,12 +66,19 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
                 return null
             }
         }
-        val attachments = attachments.map { it.toDomainAttachmentOrNullIfNotSupported() ?: return null }
-        return Publication(text, attachments)
+
+        val publicationAttachments = attachments
+            .filter { it.type !== WallpostAttachmentType.LINK }
+            .map { it.toDomainAttachmentOrNullIfNotSupported() ?: return null }
+
+        val link = attachments.find { it.type === WallpostAttachmentType.LINK }?.link?.url
+        val publicationText = if (link != null && !text.contains(link)) "$text\n$link" else text
+
+        return Publication(publicationText, publicationAttachments)
     }
 
     private fun WallpostAttachment.toDomainAttachmentOrNullIfNotSupported(): Attachment? {
-        // just ignore links
+        // TODO: implement Link attachment when link_preview_option will be implemented by Telegram bot library we use
         return if (WallpostAttachmentType.PHOTO == type) {
             val (url, bytes) = vkApi.tryDownloadFile(vkApi.getPhotoUrl(photo), TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Photo(url.toString(), bytes, photo.id)
