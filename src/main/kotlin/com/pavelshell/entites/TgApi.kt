@@ -28,19 +28,20 @@ class TgApi(tgToken: String) {
         // TODO: delete publication if one of messages wasn't delivered
         // TODO: can't post if chat ID changes
         // TODO: Improve tracking of what was posted and what not
-        // TODO: Move image to top of publication
         logger.debug("publishing {}", publication)
-        if (publication.text != null && publication.text.length > MAX_MESSAGE_TEXT_SIZE) {
-            return
-        }
         val chatId = ChatId.fromChannelUsername(channelId)
         if (publication.attachments.isEmpty()) {
-            sendMessage(chatId, publication.text)
+            sendText(chatId, publication.text)
+        } else {
+            sendTextWithAttachments(chatId, publication.text, publication.attachments)
         }
-        var textToSend = publication.text
-        sendPhotoOrVideo(chatId, textToSend, publication.attachments).also { isSent -> if (isSent) textToSend = null }
-        sendGif(chatId, textToSend, publication.attachments).also { isSent -> if (isSent) textToSend = null }
-        sendAudio(chatId, textToSend, publication.attachments).also { isSent -> if (isSent) textToSend = null }
+    }
+
+    private fun sendTextWithAttachments(chatId: ChatId, text: String?, attachments: List<Attachment>) {
+        var textToSend = text
+        sendPhotoOrVideo(chatId, textToSend, attachments).also { isSent -> if (isSent) textToSend = null }
+        sendGif(chatId, textToSend, attachments).also { isSent -> if (isSent) textToSend = null }
+        sendAudio(chatId, textToSend, attachments).also { isSent -> if (isSent) textToSend = null }
     }
 
     private fun sendPhotoOrVideo(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
@@ -48,18 +49,18 @@ class TgApi(tgToken: String) {
         if (photosAndVideos.isEmpty()) {
             return false
         }
-        var textToSend = text
+        val caption = if (text != null && text.length <= MAX_CAPTION_SIZE) text else null
         if (photosAndVideos.size == 1) {
-            if (text != null && text.length > MAX_CAPTION_SIZE) {
-                sendMessage(chatId, text).also { textToSend = null }
-            }
             when (val attachment = photosAndVideos.first()) {
-                is Attachment.Photo -> sendPhoto(chatId, attachment, textToSend)
-                is Attachment.Video -> sendVideo(chatId, attachment, textToSend)
+                is Attachment.Photo -> sendPhoto(chatId, attachment, caption)
+                is Attachment.Video -> sendVideo(chatId, attachment, caption)
                 else -> throw IllegalArgumentException("Unsupported attachment type: ${attachment.javaClass.name}")
             }
         } else {
-            sendMediaGroup(chatId, textToSend, photosAndVideos)
+            sendMediaGroup(chatId, caption, photosAndVideos)
+        }
+        if ((text?.length ?: 0) > MAX_CAPTION_SIZE) {
+            sendText(chatId, text)
         }
         return true
     }
@@ -82,7 +83,7 @@ class TgApi(tgToken: String) {
             return false
         }
         if (text != null) {
-            sendMessage(chatId, text)
+            sendText(chatId, text)
         }
         gifs.forEach { sendGif(chatId, it) }
         return true
@@ -103,7 +104,7 @@ class TgApi(tgToken: String) {
             return false
         }
         if (text != null) {
-            sendMessage(chatId, text)
+            sendText(chatId, text)
         }
         audios.forEach { sendAudio(chatId, it) }
         return true
@@ -113,7 +114,7 @@ class TgApi(tgToken: String) {
         bot.sendAudio(chatId, TelegramFile.ByByteArray(audio.data), audio.duration, audio.artist, audio.title)
     )
 
-    private fun sendMessage(chatId: ChatId, text: String?) {
+    private fun sendText(chatId: ChatId, text: String?) {
         if (!text.isNullOrBlank()) {
             handleError(bot.sendMessage(chatId, text))
         }

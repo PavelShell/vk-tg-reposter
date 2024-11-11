@@ -56,13 +56,13 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
     private fun WallItem.toPublicationOrNullIfNotSupported(): Publication? {
         copyHistory.isNullOrEmpty().also { isNotRepost ->
             if (!isNotRepost) {
-                logger.info("Skipping conversion of repost publication: {}.", this)
+                logger.warn("Skipping conversion of repost publication: {}.", this)
                 return null
             }
         }
         (TgApi.MAX_MESSAGE_TEXT_SIZE < text.length).also { isMaxTextLengthExceeded ->
             if (isMaxTextLengthExceeded) {
-                logger.info("Skipping conversion of publication due to text limit excess: {}.", this)
+                logger.warn("Skipping conversion of publication due to text limit excess: {}.", this)
                 return null
             }
         }
@@ -92,7 +92,7 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
             val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Audio(bytes, audio.artist, audio.title, audio.duration)
         } else {
-            logger.info("Skipping conversion of unsupported attachment: {}.", this)
+            logger.warn("Skipping conversion of unsupported attachment: {}.", this)
             null
         }
     }
