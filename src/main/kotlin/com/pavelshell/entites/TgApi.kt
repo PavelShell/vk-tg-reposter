@@ -27,7 +27,7 @@ class TgApi(tgToken: String) {
     fun publish(channelId: Long, publication: Publication) {
         // TODO: delete publication if one of messages wasn't delivered
         // TODO: Improve tracking of what was posted and what not
-        logger.debug("publishing {}", publication)
+        logger.info("Publishing {}", publication)
         val chatId = ChatId.fromId(channelId)
         if (publication.attachments.isEmpty()) {
             sendText(chatId, publication.text)
@@ -128,7 +128,7 @@ class TgApi(tgToken: String) {
                     // I assume it caused by TG servers misbehavior.
                     val isTgUnableToAccessResource = it.toString().contains("WEBPAGE_MEDIA_EMPTY")
                     if (isTgUnableToAccessResource) {
-                        logger.warn("Unable to send message with the following error: $it}")
+                        logger.error("Unable to send message with the following error: $it}")
                         null
                     } else {
                         TelegramApiException(it.toString())

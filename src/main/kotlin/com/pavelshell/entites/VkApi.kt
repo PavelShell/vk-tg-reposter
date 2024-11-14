@@ -78,7 +78,7 @@ class VkApi(appId: Int, accessToken: String) {
         }
         val url = vkFileUrl.toURL().followRedirect()
         val bytes = url.readBytes()
-        return if (bytes.size > maxSizeMb * 1_048_576L) null else url to bytes
+        return if (bytes.size > maxSizeMb * BYTES_IN_MB) null else url to bytes
     }
 
     private fun URL.followRedirect(): URL {
@@ -91,7 +91,7 @@ class VkApi(appId: Int, accessToken: String) {
     }
 
     /**
-     * Tries to download the [video].
+     * Tries to download the video identified by [ownerId] and [id].
      * Returns null in case of failure or if video size is bigger than [maxSizeMb].
      */
     fun tryDownloadVideo(id: Long, ownerId: Long, maxSizeMb: Int = Int.MAX_VALUE): File? {
@@ -114,9 +114,11 @@ class VkApi(appId: Int, accessToken: String) {
 
     private companion object {
 
-        const val MAX_WALL_POSTS_PER_REQUEST = 100
+        private const val MAX_WALL_POSTS_PER_REQUEST = 100
 
-        const val AVERAGE_NEW_POSTS_COUNT = 10
+        private const val AVERAGE_NEW_POSTS_COUNT = 10
+
+        private const val BYTES_IN_MB = 1_048_576L
 
         private val logger = LoggerFactory.getLogger(VkApi::class.java)
     }

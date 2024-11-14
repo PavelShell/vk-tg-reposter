@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory
 import java.time.Instant
 
 class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
+
     private val vkApi = VkApi(vkAppId, vkAccessToken)
 
     private val tgBot = TgApi(tgToken)
@@ -24,7 +25,7 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
         var lastPublicationTimestamp: Int? = null
         try {
             vkApi.getWallPostsFrom(getTimeOfLastPublishedPost(vkGroupDomain), vkGroupDomain).forEach { wallItem ->
-                logger.info("Publishing wall item $wallItem")
+                logger.info("Preparing wall item {} for publication", wallItem)
                 wallItem.toPublicationOrNullIfNotSupported()?.let { tgBot.publish(tgChannelId, it) }
                 lastPublicationTimestamp = wallItem.date
             }
@@ -79,7 +80,7 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
 
     private fun WallpostAttachment.toDomainAttachmentOrNullIfNotSupported(): Attachment? {
         // TODO: implement Link attachment when link_preview_option will be implemented by Telegram bot library we use
-        return if (WallpostAttachmentType.PHOTO == type) {
+        val result =  if (WallpostAttachmentType.PHOTO == type) {
             val (url, bytes) = vkApi.tryDownloadFile(vkApi.getPhotoUrl(photo), TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Photo(url.toString(), bytes, photo.id)
         } else if (WallpostAttachmentType.VIDEO == type) {
@@ -92,9 +93,12 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
             val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApi.MAX_FILE_SIZE_MB) ?: return null
             Attachment.Audio(bytes, audio.artist, audio.title, audio.duration)
         } else {
-            logger.warn("Skipping conversion of unsupported attachment: {}.", this)
             null
         }
+        if (result == null) {
+            logger.warn("Skipping conversion of unsupported attachment: {}.", this)
+        }
+        return result
     }
 
     companion object {
