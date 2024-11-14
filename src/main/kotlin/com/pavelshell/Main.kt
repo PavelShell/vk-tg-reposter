@@ -16,7 +16,8 @@ fun main() {
         .split(", ")
         .map {
             val (vkGroup, tgChannel) = it.split(" ")
-            vkGroup to tgChannel
+            vkGroup to (tgChannel.toLongOrNull()
+                ?: throw IllegalArgumentException("TG channel ID $tgChannel is not a proper long number"))
         }
     VkTgReposter(vkAppId, vkAccessToken, tgToken).duplicatePostsFromVkGroup(channelsToGroups)
 

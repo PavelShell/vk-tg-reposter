@@ -16,10 +16,10 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
 
     private val tgBot = TgApi(tgToken)
 
-    fun duplicatePostsFromVkGroup(vkGroupsToTgChannels: List<Pair<String, String>>) =
+    fun duplicatePostsFromVkGroup(vkGroupsToTgChannels: List<Pair<String, Long>>) =
         vkGroupsToTgChannels.forEach { duplicatePostsFromVkGroup(it.first, it.second) }
 
-    private fun duplicatePostsFromVkGroup(vkGroupDomain: String, tgChannelId: String) {
+    private fun duplicatePostsFromVkGroup(vkGroupDomain: String, tgChannelId: Long) {
         logger.info("Starting the job for [vkGroupDomain=$vkGroupDomain, tgChannelId=$tgChannelId]")
         var lastPublicationTimestamp: Int? = null
         try {

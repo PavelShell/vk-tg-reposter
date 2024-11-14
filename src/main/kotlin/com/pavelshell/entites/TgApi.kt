@@ -24,12 +24,11 @@ class TgApi(tgToken: String) {
      *
      * @throws TelegramApiException
      */
-    fun publish(channelId: String, publication: Publication) {
+    fun publish(channelId: Long, publication: Publication) {
         // TODO: delete publication if one of messages wasn't delivered
-        // TODO: can't post if chat ID changes
         // TODO: Improve tracking of what was posted and what not
         logger.debug("publishing {}", publication)
-        val chatId = ChatId.fromChannelUsername(channelId)
+        val chatId = ChatId.fromId(channelId)
         if (publication.attachments.isEmpty()) {
             sendText(chatId, publication.text)
         } else {
