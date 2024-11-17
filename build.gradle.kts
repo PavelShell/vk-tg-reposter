@@ -13,6 +13,10 @@ dependencies {
     testImplementation(kotlin("test"))
     implementation("com.vk.api:sdk:1.0.16")
     implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.2.0")
+    // Need to import this library cause `kotlin-telegram-bot` returns it's type from public API.
+    // Yeah, that gross, I know.
+    // TODO: remove after migration to a better TG API library.
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.github.jfposton:yt-dlp-java:v2.0.3")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("ch.qos.logback:logback-classic:1.5.12")

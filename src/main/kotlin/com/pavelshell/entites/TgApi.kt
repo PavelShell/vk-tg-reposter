@@ -2,6 +2,7 @@ package com.pavelshell.entites
 
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.entities.ChatId
+import com.github.kotlintelegrambot.entities.Message
 import com.github.kotlintelegrambot.entities.TelegramFile
 import com.github.kotlintelegrambot.entities.inputmedia.InputMediaPhoto
 import com.github.kotlintelegrambot.entities.inputmedia.InputMediaVideo
@@ -10,7 +11,10 @@ import com.github.kotlintelegrambot.types.TelegramBotResult
 import com.pavelshell.models.Attachment
 import com.pavelshell.models.Publication
 import org.slf4j.LoggerFactory
-import kotlin.reflect.full.memberFunctions
+import retrofit2.Response
+import com.github.kotlintelegrambot.network.Response as TgApiResponse
+
+private typealias MessageId = Long
 
 class TgApi(tgToken: String) {
 
@@ -25,46 +29,70 @@ class TgApi(tgToken: String) {
      * @throws TelegramApiException
      */
     fun publish(channelId: Long, publication: Publication) {
-        // TODO: delete publication if one of messages wasn't delivered
-        // TODO: Improve tracking of what was posted and what not
+        // TODO: Send videos with support_streaming after migration to a new library
+        // TODO: Support clips
         logger.info("Publishing {}", publication)
         val chatId = ChatId.fromId(channelId)
         if (publication.attachments.isEmpty()) {
-            sendText(chatId, publication.text)
+            sendText(chatId, publication.text ?: throw IllegalStateException("Publication is empty!"))
         } else {
             sendTextWithAttachments(chatId, publication.text, publication.attachments)
         }
     }
 
     private fun sendTextWithAttachments(chatId: ChatId, text: String?, attachments: List<Attachment>) {
-        var textToSend = text
-        sendPhotoOrVideo(chatId, textToSend, attachments).also { isSent -> if (isSent) textToSend = null }
-        sendGif(chatId, textToSend, attachments).also { isSent -> if (isSent) textToSend = null }
-        sendAudio(chatId, textToSend, attachments).also { isSent -> if (isSent) textToSend = null }
+        val sentMessageIds = mutableListOf<MessageId>()
+        try {
+            val caption = if (text != null && text.length <= MAX_CAPTION_SIZE) text else null
+            sentMessageIds += sendPhotoOrVideo(chatId, attachments, caption)
+            if (text != null && caption == null) sentMessageIds += sendText(chatId, text)
+            sentMessageIds += sendGif(chatId, attachments)
+            sentMessageIds += sendAudio(chatId, attachments)
+        } catch (e: TelegramApiException) {
+            sentMessageIds.forEach { bot.deleteMessage(chatId, it) }
+            throw e
+        }
     }
 
-    private fun sendPhotoOrVideo(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
+    private fun sendPhotoOrVideo(
+        chatId: ChatId,
+        attachments: List<Attachment>,
+        caption: String?
+    ): Collection<MessageId> {
         val photosAndVideos = attachments.filter { it is Attachment.Photo || it is Attachment.Video }
         if (photosAndVideos.isEmpty()) {
-            return false
+            return emptyList()
         }
-        val caption = if (text != null && text.length <= MAX_CAPTION_SIZE) text else null
         if (photosAndVideos.size == 1) {
-            when (val attachment = photosAndVideos.first()) {
+            val messageId = when (val attachment = photosAndVideos.first()) {
                 is Attachment.Photo -> sendPhoto(chatId, attachment, caption)
                 is Attachment.Video -> sendVideo(chatId, attachment, caption)
                 else -> throw IllegalArgumentException("Unsupported attachment type: ${attachment.javaClass.name}")
             }
-        } else {
-            sendMediaGroup(chatId, caption, photosAndVideos)
+            return listOf(messageId)
         }
-        if ((text?.length ?: 0) > MAX_CAPTION_SIZE) {
-            sendText(chatId, text)
-        }
-        return true
+        return sendMediaGroup(chatId, photosAndVideos, caption)
     }
 
-    private fun sendMediaGroup(chatId: ChatId, text: String?, photosAndVideos: List<Attachment>) {
+    private fun sendPhoto(chatId: ChatId, photo: Attachment.Photo, text: String?): MessageId {
+        return try {
+            bot.sendPhoto(chatId, TelegramFile.ByUrl(photo.url), text).also(::throwIfError).messageId
+        } catch (e: TelegramApiException) {
+            logger.debug("Can't send photo with id={} by URL, will send as bytes array", photo.vkId)
+            bot.sendPhoto(chatId, TelegramFile.ByByteArray(photo.data), text).also(::throwIfError).messageId
+        }
+    }
+
+    private fun sendVideo(chatId: ChatId, video: Attachment.Video, caption: String?): MessageId =
+        bot.sendVideo(chatId, TelegramFile.ByFile(video.data), video.duration, caption = caption)
+            .also(::throwIfError)
+            .messageId
+
+    private fun sendMediaGroup(
+        chatId: ChatId,
+        photosAndVideos: List<Attachment>,
+        text: String?
+    ): Collection<MessageId> {
         val mediaGroup = photosAndVideos.mapIndexed { index, it ->
             val caption = if (index == 0) text else null
             when (it) {
@@ -73,53 +101,16 @@ class TgApi(tgToken: String) {
                 else -> throw IllegalArgumentException("Unsupported attachment type: ${it.javaClass.name}")
             }
         }.let { MediaGroup.from(*it.toTypedArray()) }
-        handleError(bot.sendMediaGroup(chatId, mediaGroup))
+        return bot.sendMediaGroup(chatId, mediaGroup)
+            .also(::throwIfError)
+            .get()
+            .map { it.messageId }
     }
 
-    private fun sendGif(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
-        val gifs = attachments.filterIsInstance<Attachment.Gif>()
-        if (gifs.isEmpty()) {
-            return false
-        }
-        if (text != null) {
-            sendText(chatId, text)
-        }
-        gifs.forEach { sendGif(chatId, it) }
-        return true
-    }
+    private fun sendText(chatId: ChatId, text: String): MessageId =
+        bot.sendMessage(chatId, text).also(::throwIfError).get().messageId
 
-    private fun sendGif(chatId: ChatId, gif: Attachment.Gif) {
-        try {
-            handleError(bot.sendAnimation(chatId, TelegramFile.ByUrl(gif.url)))
-        } catch (e: TelegramApiException) {
-            logger.debug("Can't send gif with id={} as animation, will send as video", gif.vkId)
-            handleError(bot.sendVideo(chatId, TelegramFile.ByByteArray(gif.data)))
-        }
-    }
-
-    private fun sendAudio(chatId: ChatId, text: String?, attachments: List<Attachment>): Boolean {
-        val audios = attachments.filterIsInstance<Attachment.Audio>()
-        if (audios.isEmpty()) {
-            return false
-        }
-        if (text != null) {
-            sendText(chatId, text)
-        }
-        audios.forEach { sendAudio(chatId, it) }
-        return true
-    }
-
-    private fun sendAudio(chatId: ChatId, audio: Attachment.Audio) = handleError(
-        bot.sendAudio(chatId, TelegramFile.ByByteArray(audio.data), audio.duration, audio.artist, audio.title)
-    )
-
-    private fun sendText(chatId: ChatId, text: String?) {
-        if (!text.isNullOrBlank()) {
-            handleError(bot.sendMessage(chatId, text))
-        }
-    }
-
-    private fun handleError(callResult: TelegramBotResult<Any>) {
+    private fun throwIfError(callResult: TelegramBotResult<Any>) {
         callResult.onError {
             val exception = when (it) {
                 is TelegramBotResult.Error.Unknown -> TelegramApiException(cause = it.exception)
@@ -139,41 +130,59 @@ class TgApi(tgToken: String) {
         }
     }
 
-    private fun sendPhoto(chatId: ChatId, photo: Attachment.Photo, text: String?) {
+    private fun sendGif(chatId: ChatId, attachments: List<Attachment>): Collection<MessageId> {
+        val gifs = attachments.filterIsInstance<Attachment.Gif>()
+        if (gifs.isEmpty()) {
+            return emptyList()
+        }
+        val sentMessageIds = mutableListOf<MessageId>()
         try {
-            handleError(bot.sendPhoto(chatId, TelegramFile.ByUrl(photo.url), text))
+            gifs.forEach { sentMessageIds += sendGif(chatId, it) }
         } catch (e: TelegramApiException) {
-            logger.debug("Can't send photo with id={} as animation, will send as video", photo.vkId)
-            handleError(bot.sendPhoto(chatId, TelegramFile.ByByteArray(photo.data), text))
+            sentMessageIds.forEach { bot.deleteMessage(chatId, it) }
+            throw e
+        }
+        return sentMessageIds
+    }
+
+    private fun sendGif(chatId: ChatId, gif: Attachment.Gif): MessageId {
+        return try {
+            bot.sendAnimation(chatId, TelegramFile.ByUrl(gif.url)).also(::throwIfError).messageId
+        } catch (e: TelegramApiException) {
+            logger.debug("Can't send gif with id={} as animation, will send as video", gif.vkId)
+            bot.sendVideo(chatId, TelegramFile.ByByteArray(gif.data)).also(::throwIfError).messageId
         }
     }
 
-    private fun sendVideo(chatId: ChatId, video: Attachment.Video, caption: String?) =
-        handleError(bot.sendVideo(chatId, TelegramFile.ByFile(video.data), video.duration, caption = caption))
-
-    private fun handleError(callResult: Pair<Any?, Exception?>) {
-        val errorBody: String? = if (callResult.first == null) {
-            null
-        } else {
-            // I know this is unwise, but another solution will be importing of the whole Retrofit library.
-            val errorBody = callFunctionWithName(callResult.first, "errorBody")
-            callFunctionWithName(errorBody, "string")?.toString()
+    private fun sendAudio(chatId: ChatId, attachments: List<Attachment>): Collection<MessageId> {
+        val audios = attachments.filterIsInstance<Attachment.Audio>()
+        if (audios.isEmpty()) {
+            return emptyList()
         }
-        if (errorBody != null) {
-            throw TelegramApiException(errorBody)
+        val sentMessageIds = mutableListOf<MessageId>()
+        try {
+            audios.forEach { sentMessageIds += sendAudio(chatId, it) }
+        } catch (e: TelegramApiException) {
+            sentMessageIds.forEach { bot.deleteMessage(chatId, it) }
+            throw e
         }
-        val exception = callResult.second
-        if (exception != null) {
-            throw TelegramApiException(cause = exception)
-        }
+        return sentMessageIds
     }
 
-    private fun callFunctionWithName(instance: Any?, name: String): Any? =
-        if (instance == null) {
-            null
-        } else {
-            instance::class.memberFunctions.find { it.name == name }?.call(instance)
+    private fun sendAudio(chatId: ChatId, audio: Attachment.Audio): MessageId =
+        bot.sendAudio(chatId, TelegramFile.ByByteArray(audio.data), audio.duration, audio.artist, audio.title)
+            .also(::throwIfError)
+            .messageId
+
+    private val Pair<Response<TgApiResponse<Message>?>?, Exception?>.messageId: MessageId
+        get() {
+            return this.first?.body()?.result?.messageId ?: throw IllegalStateException("Body is empty in $this")
         }
+
+    private fun throwIfError(callResult: Pair<Response<out Any?>?, Exception?>) {
+        callResult.first?.errorBody()?.string()?.let { throw TelegramApiException(it) }
+        callResult.second?.let { throw TelegramApiException(cause = it) }
+    }
 
     /**
      * Exception that is thrown when request to Telegram API is failed.

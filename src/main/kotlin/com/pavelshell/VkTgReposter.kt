@@ -73,9 +73,9 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
             .map { it.toDomainAttachmentOrNullIfNotSupported() ?: return null }
 
         val link = attachments.find { it.type === WallpostAttachmentType.LINK }?.link?.url
-        val publicationText = if (link != null && !text.contains(link)) "$text\n$link" else text
+        val publicationText = if (link != null && !text.contains(link)) "$text\n\n$link" else text
 
-        return Publication(publicationText, publicationAttachments)
+        return Publication(publicationText.ifBlank { null }, publicationAttachments)
     }
 
     private fun WallpostAttachment.toDomainAttachmentOrNullIfNotSupported(): Attachment? {
