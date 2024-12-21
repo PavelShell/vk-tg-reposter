@@ -1,4 +1,4 @@
-package com.pavelshell.entites
+package com.pavelshell.logic
 
 import com.jfposton.ytdlp.YtDlp
 import com.jfposton.ytdlp.YtDlpException
@@ -16,11 +16,31 @@ import java.net.URI
 import java.net.URL
 import java.time.Instant
 
-class VkApi(appId: Int, accessToken: String) {
+/**
+ * Represents API for working with VK.com platform.
+ */
+class VkApi {
 
-    private val vkApi = VkApiClient(HttpTransportClient())
+    private val service: ServiceActor;
 
-    private val service = ServiceActor(appId, accessToken)
+    private val apiClient: VkApiClient;
+
+    /**
+     * Creates VK API that is accessed by [accessToken] and [appId].
+     * To get these values go to [VK auth service page](https://id.vk.com/about/business/go).
+     */
+    constructor(appId: Int, accessToken: String) {
+        service = ServiceActor(appId, accessToken)
+        apiClient = VkApiClient(HttpTransportClient())
+    }
+
+    /**
+     * Default constructor with all dependencies.
+     */
+    constructor(service: ServiceActor, apiClient: VkApiClient) {
+        this.service = service
+        this.apiClient = apiClient
+    }
 
     /**
      * Returns list of wall posts created after [timePoint] for a user or community with [domain].
@@ -29,33 +49,38 @@ class VkApi(appId: Int, accessToken: String) {
     fun getWallPostsFrom(timePoint: Instant, domain: String): List<WallItem> {
         logger.info("Fetching wall posts from VK API for $domain starting from $timePoint")
         var offset = 0
-        var wallPostsSlice = getWallPostsSlice(domain, offset, AVERAGE_NEW_POSTS_COUNT)
+        var wallPostsSlice = getWallPostsSlice(domain, offset)
             .toMutableList()
             .also {
                 if (it.isEmpty()) logger.warn("0 posts were found for domain $domain")
-                if (it.isNotEmpty() && it[0].isPinned()) it.removeFirst()
+                if (it.isNotEmpty() && it[0].isPinned()) {
+                    it.removeFirst()
+                    offset += 1
+                }
             }
             .toList()
         val result: MutableList<WallItem> = mutableListOf()
         while (wallPostsSlice.isNotEmpty()) {
             var areAllNewPostsFound = false
-            val newPosts =
-                wallPostsSlice.takeWhile { (timePoint.epochSecond < it.date).also { areAllNewPostsFound = !it } }
-            result.addAll(newPosts.filter { !it.isPinned() })
+            val newPosts = wallPostsSlice.takeWhile { post ->
+                (timePoint.epochSecond < post.date).also { areAllNewPostsFound = !it }
+            }
+            result.addAll(newPosts)
             if (areAllNewPostsFound) {
                 break
             }
             offset += newPosts.size
-            wallPostsSlice = getWallPostsSlice(domain, offset, MAX_WALL_POSTS_PER_REQUEST)
+            wallPostsSlice = getWallPostsSlice(domain, offset)
         }
         return result.reversed()
     }
 
-    private fun getWallPostsSlice(domain: String, offset: Int, count: Int): List<WallItem> = vkApi.wall().get(service)
+    private fun getWallPostsSlice(domain: String, offset: Int): List<WallItem> = apiClient.wall()
+        .get(service)
         .domain(domain)
         .filter(GetFilter.ALL)
         .offset(offset)
-        .count(count)
+        .count(10)
         .execute()
         .items
 
@@ -73,7 +98,7 @@ class VkApi(appId: Int, accessToken: String) {
      */
     fun tryDownloadFile(vkFileUrl: URI, maxSizeMb: Int = Int.MAX_VALUE): Pair<URL, ByteArray>? {
         if (vkFileUrl.toString().isEmpty()) {
-            // file is blocked
+            logger.warn("URL is empty, can't download the file.")
             return null
         }
         val url = vkFileUrl.toURL().followRedirect()
@@ -107,16 +132,12 @@ class VkApi(appId: Int, accessToken: String) {
             YtDlp.execute(request)
             return videoFile.also { if (!it.exists()) return null }
         } catch (e: YtDlpException) {
-            logger.warn("Unable to download video from $url", e)
+            logger.warn("Unable to download video from $url.", e)
             return null
         }
     }
 
     private companion object {
-
-        private const val MAX_WALL_POSTS_PER_REQUEST = 100
-
-        private const val AVERAGE_NEW_POSTS_COUNT = 10
 
         private const val BYTES_IN_MB = 1_048_576L
 

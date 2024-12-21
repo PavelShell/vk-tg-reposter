@@ -1,4 +1,4 @@
-package com.pavelshell.entites
+package com.pavelshell.logic
 
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.entities.ChatId

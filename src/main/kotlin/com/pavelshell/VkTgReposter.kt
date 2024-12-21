@@ -1,8 +1,8 @@
 package com.pavelshell
 
-import com.pavelshell.entites.FileStorage
-import com.pavelshell.entites.TgApi
-import com.pavelshell.entites.VkApi
+import com.pavelshell.logic.FileStorage
+import com.pavelshell.logic.TgApi
+import com.pavelshell.logic.VkApi
 import com.pavelshell.models.Attachment
 import com.pavelshell.models.Publication
 import com.vk.api.sdk.objects.wall.WallItem
@@ -26,7 +26,9 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
         try {
             vkApi.getWallPostsFrom(getTimeOfLastPublishedPost(vkGroupDomain), vkGroupDomain).forEach { wallItem ->
                 logger.info("Preparing wall item {} for publication", wallItem)
-                wallItem.toPublicationOrNullIfNotSupported()?.let { tgBot.publish(tgChannelId, it) }
+                wallItem.toPublicationOrNullIfNotSupported()?.let {
+                    tgBot.publish(tgChannelId, it)
+                }
                 lastPublicationTimestamp = wallItem.date
             }
         } catch (e: Exception) {
@@ -57,13 +59,13 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
     private fun WallItem.toPublicationOrNullIfNotSupported(): Publication? {
         copyHistory.isNullOrEmpty().also { isNotRepost ->
             if (!isNotRepost) {
-                logger.warn("Skipping conversion of repost publication: {}.", this)
+                logger.info("Skipping conversion of repost publication: {}.", this)
                 return null
             }
         }
         (TgApi.MAX_MESSAGE_TEXT_SIZE < text.length).also { isMaxTextLengthExceeded ->
             if (isMaxTextLengthExceeded) {
-                logger.warn("Skipping conversion of publication due to text limit excess: {}.", this)
+                logger.info("Skipping conversion of publication due to text limit excess: {}.", this)
                 return null
             }
         }
