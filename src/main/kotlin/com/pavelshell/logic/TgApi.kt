@@ -1,5 +1,6 @@
 package com.pavelshell.logic
 
+import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.Message
@@ -16,11 +17,31 @@ import com.github.kotlintelegrambot.network.Response as TgApiResponse
 
 private typealias MessageId = Long
 
-class TgApi(tgToken: String) {
+/**
+ * Represents Telegram platform API that is based on Telegram bot API.
+ * To use it you need to create your bot by @BotFather Telegram bot, and then
+ * add it to your channel giving bot a permission for sending messages.
+ */
+class TgApi {
 
-    private val bot = bot {
-        token = tgToken
-        timeout = 45
+    private val bot: Bot
+
+    /**
+     * Creates API that is accessed by bot [token].
+     */
+    constructor(token: String) {
+        bot = bot {
+            this.token = token
+            timeout = 45
+        }
+    }
+
+    /**
+     * Default constructor with all dependencies.
+     */
+    // used for testing
+    constructor(bot: Bot) {
+        this.bot = bot
     }
 
     /**
@@ -34,7 +55,7 @@ class TgApi(tgToken: String) {
         logger.info("Publishing {}", publication)
         val chatId = ChatId.fromId(channelId)
         if (publication.attachments.isEmpty()) {
-            sendText(chatId, publication.text ?: throw IllegalStateException("Publication is empty!"))
+            sendText(chatId, publication.text ?: throw IllegalStateException("Publication is empty"))
         } else {
             sendTextWithAttachments(chatId, publication.text, publication.attachments)
         }
@@ -43,14 +64,18 @@ class TgApi(tgToken: String) {
     private fun sendTextWithAttachments(chatId: ChatId, text: String?, attachments: List<Attachment>) {
         val sentMessageIds = mutableListOf<MessageId>()
         try {
-            val caption = if (text != null && text.length <= MAX_CAPTION_SIZE) text else null
+            val caption = if (MAX_CAPTION_SIZE >= (text?.length ?: 0)) text else null
             sentMessageIds += sendPhotoOrVideo(chatId, attachments, caption)
-            if (text != null && caption == null) sentMessageIds += sendText(chatId, text)
+            if (text != null && (caption == null || sentMessageIds.isEmpty())) sentMessageIds += sendText(chatId, text)
             sentMessageIds += sendGif(chatId, attachments)
             sentMessageIds += sendAudio(chatId, attachments)
         } catch (e: TelegramApiException) {
             sentMessageIds.forEach { bot.deleteMessage(chatId, it) }
-            throw e
+            if (e is ResourceUnavailableException) {
+                logger.error("Unable to send attachments [$attachments] with the text [$text]", e)
+            } else {
+                throw e
+            }
         }
     }
 
@@ -110,23 +135,19 @@ class TgApi(tgToken: String) {
     private fun sendText(chatId: ChatId, text: String): MessageId =
         bot.sendMessage(chatId, text).also(::throwIfError).get().messageId
 
-    private fun throwIfError(callResult: TelegramBotResult<Any>) {
-        callResult.onError {
-            val exception = when (it) {
-                is TelegramBotResult.Error.Unknown -> TelegramApiException(cause = it.exception)
-                else -> {
-                    // This error happens sometimes and can persist for more than several hours.
-                    // I assume it caused by TG servers misbehavior.
-                    val isTgUnableToAccessResource = it.toString().contains("WEBPAGE_MEDIA_EMPTY")
-                    if (isTgUnableToAccessResource) {
-                        logger.error("Unable to send message with the following error: $it}")
-                        null
-                    } else {
-                        TelegramApiException(it.toString())
-                    }
+    private fun throwIfError(callResult: TelegramBotResult<Any>) = callResult.onError {
+        throw when (it) {
+            is TelegramBotResult.Error.Unknown -> TelegramApiException(cause = it.exception)
+            else -> {
+                // This error happens sometimes and can persist for more than several hours.
+                // I assume it caused by TG servers misbehavior.
+                val isTgUnableToAccessResource = it.toString().contains("WEBPAGE_MEDIA_EMPTY")
+                if (isTgUnableToAccessResource) {
+                    ResourceUnavailableException(it.toString())
+                } else {
+                    TelegramApiException(it.toString())
                 }
             }
-            exception?.let { e -> throw e }
         }
     }
 
@@ -137,6 +158,7 @@ class TgApi(tgToken: String) {
         }
         val sentMessageIds = mutableListOf<MessageId>()
         try {
+            // TODO: send GIFs as group if gifs.size > 1
             gifs.forEach { sentMessageIds += sendGif(chatId, it) }
         } catch (e: TelegramApiException) {
             sentMessageIds.forEach { bot.deleteMessage(chatId, it) }
@@ -187,7 +209,10 @@ class TgApi(tgToken: String) {
     /**
      * Exception that is thrown when request to Telegram API is failed.
      */
-    class TelegramApiException(msg: String? = null, cause: Throwable? = null) : Exception(msg, cause)
+    open class TelegramApiException(msg: String? = null, cause: Throwable? = null) : Exception(msg, cause)
+
+    private class ResourceUnavailableException(msg: String? = null, cause: Throwable? = null) :
+        TelegramApiException(msg, cause)
 
     companion object {
 
