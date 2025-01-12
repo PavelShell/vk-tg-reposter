@@ -81,9 +81,9 @@ sealed class Attachment {
 
         override fun hashCode(): Int {
             var result = data.contentHashCode()
-            result = 31 * result + (artist.hashCode() ?: 0)
-            result = 31 * result + (title.hashCode() ?: 0)
-            result = 31 * result + (duration ?: 0)
+            result = 31 * result + artist.hashCode()
+            result = 31 * result + title.hashCode()
+            result = 31 * result + duration
             return result
         }
 

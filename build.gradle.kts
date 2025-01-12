@@ -18,10 +18,10 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.github.jfposton:yt-dlp-java:v2.0.3")
     implementation("org.slf4j:slf4j-api:2.0.16")
-    implementation("ch.qos.logback:logback-classic:1.5.12")
+    implementation("ch.qos.logback:logback-classic:1.5.16")
     implementation(kotlin("reflect"))
 
-    testImplementation("org.wiremock:wiremock:3.9.2")
+    testImplementation("org.wiremock:wiremock:3.10.0")
     testImplementation("org.assertj:assertj-core:3.24.2")
     testImplementation("io.mockk:mockk:1.13.13")
 }

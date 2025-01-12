@@ -9,12 +9,7 @@ data class Publication(
 ) {
 
     init {
-        if (attachments.isEmpty() && text.isNullOrBlank()) {
-            throw IllegalArgumentException("Publication can't be empty")
-        }
-
-        if (attachments.size > 10) {
-            throw IllegalArgumentException("Publication can't contain more than 10 attachments")
-        }
+        require(attachments.isNotEmpty() || !text.isNullOrBlank()) { "Publication can't be empty" }
+        require(attachments.size <= 10) { "Publication attachments must have 10 attachments" }
     }
 }

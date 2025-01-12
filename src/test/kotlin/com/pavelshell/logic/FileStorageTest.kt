@@ -2,12 +2,14 @@ package com.pavelshell.logic
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.File
 
 
 class FileStorageTest {
 
+    @BeforeEach
     @AfterEach
     fun `re-create storage file`() {
         storageFile.delete()

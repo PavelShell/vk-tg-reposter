@@ -21,9 +21,9 @@ import java.time.Instant
  */
 class VkApi {
 
-    private val service: ServiceActor;
+    private val service: ServiceActor
 
-    private val apiClient: VkApiClient;
+    private val apiClient: VkApiClient
 
     /**
      * Creates VK API that is accessed by [accessToken] and [appId].
@@ -37,6 +37,7 @@ class VkApi {
     /**
      * Default constructor with all dependencies.
      */
+    // created for testing
     constructor(service: ServiceActor, apiClient: VkApiClient) {
         this.service = service
         this.apiClient = apiClient
@@ -80,7 +81,7 @@ class VkApi {
         .domain(domain)
         .filter(GetFilter.ALL)
         .offset(offset)
-        .count(10)
+        .count(100)
         .execute()
         .items
 

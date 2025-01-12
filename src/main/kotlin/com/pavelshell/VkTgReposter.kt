@@ -82,25 +82,32 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
 
     private fun WallpostAttachment.toDomainAttachmentOrNullIfNotSupported(): Attachment? {
         // TODO: implement Link attachment when link_preview_option will be implemented by Telegram bot library we use
-        val result =  if (WallpostAttachmentType.PHOTO == type) {
-            val (url, bytes) = vkApi.tryDownloadFile(vkApi.getPhotoUrl(photo), TgApi.MAX_FILE_SIZE_MB) ?: return null
-            Attachment.Photo(url.toString(), bytes, photo.id)
-        } else if (WallpostAttachmentType.VIDEO == type) {
-            val file = vkApi.tryDownloadVideo(video.id.toLong(), video.ownerId, TgApi.MAX_FILE_SIZE_MB) ?: return null
-            Attachment.Video(file, video.duration)
-        } else if (WallpostAttachmentType.DOC == type && GIF_DOCUMENT_CODE == doc.type) {
-            val (url, bytes) = vkApi.tryDownloadFile(doc.url, TgApi.MAX_FILE_SIZE_MB) ?: return null
-            Attachment.Gif(bytes, url.toString(), doc.id)
-        } else if (WallpostAttachmentType.AUDIO == type) {
-            val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApi.MAX_FILE_SIZE_MB) ?: return null
-            Attachment.Audio(bytes, audio.artist, audio.title, audio.duration)
-        } else {
-            null
+        return when {
+            WallpostAttachmentType.PHOTO == type -> {
+                val (url, bytes) = vkApi.tryDownloadFile(vkApi.getPhotoUrl(photo), TgApi.MAX_FILE_SIZE_MB)
+                    ?: return null
+                Attachment.Photo(url.toString(), bytes, photo.id)
+            }
+            WallpostAttachmentType.VIDEO == type -> {
+                val file = vkApi.tryDownloadVideo(video.id.toLong(), video.ownerId, TgApi.MAX_FILE_SIZE_MB)
+                    ?: return null
+                Attachment.Video(file, video.duration)
+            }
+            WallpostAttachmentType.DOC == type && GIF_DOCUMENT_CODE == doc.type -> {
+                val (url, bytes) = vkApi.tryDownloadFile(doc.url, TgApi.MAX_FILE_SIZE_MB)
+                    ?: return null
+                Attachment.Gif(bytes, url.toString(), doc.id)
+            }
+            WallpostAttachmentType.AUDIO == type -> {
+                val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApi.MAX_FILE_SIZE_MB)
+                    ?: return null
+                Attachment.Audio(bytes, audio.artist, audio.title, audio.duration)
+            }
+            else -> {
+                logger.warn("Skipping conversion of unsupported attachment: {}.", this)
+                null
+            }
         }
-        if (result == null) {
-            logger.warn("Skipping conversion of unsupported attachment: {}.", this)
-        }
-        return result
     }
 
     companion object {

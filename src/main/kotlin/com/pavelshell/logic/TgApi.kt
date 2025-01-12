@@ -39,7 +39,7 @@ class TgApi {
     /**
      * Default constructor with all dependencies.
      */
-    // used for testing
+    // created for testing
     constructor(bot: Bot) {
         this.bot = bot
     }

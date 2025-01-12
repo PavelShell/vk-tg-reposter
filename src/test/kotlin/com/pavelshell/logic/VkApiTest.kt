@@ -172,7 +172,7 @@ class VkApiTest {
     @Nested
     inner class `get wall posts` {
 
-        val domain = "domain"
+        private val domain = "domain"
 
         @Test
         fun `starting form specific time`() {
@@ -255,7 +255,7 @@ class VkApiTest {
             .domain(domain)
             .filter(GetFilter.ALL)
             .offset(offset)
-            .count(10)
+            .count(100)
             .execute()
             .items
     }

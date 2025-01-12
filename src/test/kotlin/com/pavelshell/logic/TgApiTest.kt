@@ -51,7 +51,7 @@ class TgApiTest {
     @Test
     fun `send text with attachments`() {
         val publication = Publication(
-            "9".repeat(TgApi.MAX_MESSAGE_TEXT_SIZE + 1),
+            "9".repeat(MAX_CAPTION_SIZE + 1),
             listOf(
                 Attachment.Gif("iddqd".toByteArray(), "https://localhost:4200", 1),
                 Attachment.Audio("iddqd".toByteArray(), "a", "b", 1),
@@ -79,7 +79,7 @@ class TgApiTest {
     @Test
     fun `delete sent messages if part of the publication wasn't sent successfully`() {
         val publication = Publication(
-            "9".repeat(TgApi.MAX_MESSAGE_TEXT_SIZE + 1),
+            "9".repeat(MAX_CAPTION_SIZE + 1),
             listOf(
                 Attachment.Gif("iddqd".toByteArray(), "https://localhost:4200", 1),
                 Attachment.Audio("iddqd".toByteArray(), "a", "b", 1),
@@ -144,7 +144,7 @@ class TgApiTest {
         @Test
         fun `delete sent photo if part of the publication wasn't sent successfully`() {
             val publication = Publication(
-                "9".repeat(TgApi.MAX_MESSAGE_TEXT_SIZE + 1),
+                "9".repeat(MAX_CAPTION_SIZE + 1),
                 listOf(Attachment.Photo("https://localhost:4200", "iddqd".toByteArray(), 0))
             )
 
@@ -191,7 +191,7 @@ class TgApiTest {
         @Test
         fun `delete sent video if part of the publication wasn't sent successfully`() {
             val publication = Publication(
-                "9".repeat(TgApi.MAX_MESSAGE_TEXT_SIZE + 1),
+                "9".repeat(MAX_CAPTION_SIZE + 1),
                 listOf(Attachment.Video(File("path"), 0))
             )
 
@@ -242,7 +242,7 @@ class TgApiTest {
         @Test
         fun `delete sent media group if part of the publication wasn't sent successfully`() {
             val publication = Publication(
-                "9".repeat(TgApi.MAX_MESSAGE_TEXT_SIZE + 1),
+                "9".repeat(MAX_CAPTION_SIZE + 1),
                 listOf(
                     Attachment.Video(File("path"), 0),
                     Attachment.Photo("https://localhost:4200", "iddqd".toByteArray(), 0)
@@ -266,7 +266,7 @@ class TgApiTest {
         @Test
         fun `send text separately if caption length limit is exceeded`() {
             val photoAttachment = Attachment.Photo("https://localhost:4200", "iddqd".toByteArray(), 0)
-            val publication = Publication("9".repeat(TgApi.MAX_MESSAGE_TEXT_SIZE + 1), listOf(photoAttachment))
+            val publication = Publication("9".repeat(MAX_CAPTION_SIZE + 1), listOf(photoAttachment))
 
             every { bot.sendPhoto(chatIdEq(), any<TelegramFile>(), null) } returns buildRetrofitSuccessResult()
             every { bot.sendMessage(chatIdEq(), publication.text!!) } returns buildTelegramBotSuccessResult()
@@ -491,5 +491,6 @@ class TgApiTest {
 
     companion object {
         private const val CHANNEL_ID = -7788L
+        private const val MAX_CAPTION_SIZE = 1024
     }
 }
