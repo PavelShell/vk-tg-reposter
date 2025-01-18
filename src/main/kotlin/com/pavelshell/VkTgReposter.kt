@@ -11,11 +11,28 @@ import com.vk.api.sdk.objects.wall.WallpostAttachmentType
 import org.slf4j.LoggerFactory
 import java.time.Instant
 
-class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
+class VkTgReposter {
 
-    private val vkApi = VkApi(vkAppId, vkAccessToken)
+    private val vkApi: VkApi
 
-    private val tgBot = TgApi(tgToken)
+    private val tgBot: TgApi
+
+    /**
+     * Initializes the script by instantiating [VkApi] and [TgApi] with provided credentials.
+     */
+    constructor(vkAppId: Int, vkAccessToken: String, tgToken: String) {
+        vkApi = VkApi(vkAppId, vkAccessToken)
+        tgBot = TgApi(tgToken)
+    }
+
+    /**
+     * Default constructor with all dependencies.
+     */
+    // created for testing
+    constructor(vkApi: VkApi, tgBot: TgApi) {
+        this.vkApi = vkApi
+        this.tgBot = tgBot
+    }
 
     fun duplicatePostsFromVkGroup(vkGroupsToTgChannels: List<Pair<String, Long>>) =
         vkGroupsToTgChannels.forEach { duplicatePostsFromVkGroup(it.first, it.second) }
@@ -47,14 +64,17 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
 
     private fun getTimeOfLastPublishedPostFromEnv(vkGroupDomain: String): Instant? {
         val key = "LAST_PUBLICATION_UNIX_TIMESTAMP_$vkGroupDomain"
-        return System.getenv(key)
+        return getEnv(key)
             ?.let {
                 runCatching { it.toLong() }
                     .getOrNull()
-                    ?: throw IllegalArgumentException("$key environment variable $it is not a number")
+                    ?: throw IllegalArgumentException("$key value $it is not a number")
             }
             ?.let { Instant.ofEpochSecond(it) }
     }
+
+    // created for testing
+    private fun getEnv(key: String): String? = System.getenv(key)
 
     private fun WallItem.toPublicationOrNullIfNotSupported(): Publication? {
         copyHistory.isNullOrEmpty().also { isNotRepost ->
@@ -88,21 +108,25 @@ class VkTgReposter(vkAppId: Int, vkAccessToken: String, tgToken: String) {
                     ?: return null
                 Attachment.Photo(url.toString(), bytes, photo.id)
             }
+
             WallpostAttachmentType.VIDEO == type -> {
                 val file = vkApi.tryDownloadVideo(video.id.toLong(), video.ownerId, TgApi.MAX_FILE_SIZE_MB)
                     ?: return null
                 Attachment.Video(file, video.duration)
             }
+
             WallpostAttachmentType.DOC == type && GIF_DOCUMENT_CODE == doc.type -> {
                 val (url, bytes) = vkApi.tryDownloadFile(doc.url, TgApi.MAX_FILE_SIZE_MB)
                     ?: return null
                 Attachment.Gif(bytes, url.toString(), doc.id)
             }
+
             WallpostAttachmentType.AUDIO == type -> {
                 val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApi.MAX_FILE_SIZE_MB)
                     ?: return null
                 Attachment.Audio(bytes, audio.artist, audio.title, audio.duration)
             }
+
             else -> {
                 logger.warn("Skipping conversion of unsupported attachment: {}.", this)
                 null
