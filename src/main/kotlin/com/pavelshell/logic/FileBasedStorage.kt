@@ -6,7 +6,7 @@ import kotlin.io.path.createParentDirectories
 /**
  * Simple file-based storage.
  */
-object FileStorage {
+object FileBasedStorage {
 
     private val lastPublicationDatesFile = File("vk-tg-reposter-storage/storage")
         .also {

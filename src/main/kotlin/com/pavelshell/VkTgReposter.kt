@@ -1,10 +1,11 @@
 package com.pavelshell
 
-import com.pavelshell.logic.FileStorage
+import com.pavelshell.logic.FileBasedStorage
 import com.pavelshell.logic.TgApi
 import com.pavelshell.logic.VkApi
 import com.pavelshell.models.Attachment
 import com.pavelshell.models.Publication
+import com.vk.api.sdk.objects.base.Link
 import com.vk.api.sdk.objects.wall.WallItem
 import com.vk.api.sdk.objects.wall.WallpostAttachment
 import com.vk.api.sdk.objects.wall.WallpostAttachmentType
@@ -49,15 +50,19 @@ class VkTgReposter {
                 lastPublicationTimestamp = wallItem.date
             }
         } catch (e: Exception) {
-            logger.error("Job failed with the following error", e)
+            if (e.message?.contains("Too Many Requests") == true) {
+                logger.info("Telegram rate limit reached", e)
+            } else {
+                logger.error("Job failed with the following error", e)
+            }
         } finally {
-            lastPublicationTimestamp?.let { FileStorage.set(vkGroupDomain, it.toString()) }
+            lastPublicationTimestamp?.let { FileBasedStorage.set(vkGroupDomain, it.toString()) }
         }
         logger.info("Job finished successfully for [vkGroupDomain=$vkGroupDomain, tgChannelId=$tgChannelId]")
     }
 
     private fun getTimeOfLastPublishedPost(vkGroupDomain: String): Instant {
-        return FileStorage.get(vkGroupDomain)?.let { Instant.ofEpochSecond(it.toLong()) }
+        return FileBasedStorage.get(vkGroupDomain)?.let { Instant.ofEpochSecond(it.toLong()) }
             ?: getTimeOfLastPublishedPostFromEnv(vkGroupDomain)
             ?: Instant.MIN
     }
@@ -83,20 +88,19 @@ class VkTgReposter {
                 return null
             }
         }
-        (TgApi.MAX_MESSAGE_TEXT_SIZE < text.length).also { isMaxTextLengthExceeded ->
+        val publicationText = formatPublicationText(
+            text,
+            attachments.find { it.type === WallpostAttachmentType.LINK }?.link
+        )
+        (TgApi.MAX_MESSAGE_TEXT_SIZE < publicationText.length).also { isMaxTextLengthExceeded ->
             if (isMaxTextLengthExceeded) {
                 logger.info("Skipping conversion of publication due to text limit excess: {}.", this)
                 return null
             }
         }
-
         val publicationAttachments = attachments
             .filter { it.type !== WallpostAttachmentType.LINK }
             .map { it.toDomainAttachmentOrNullIfNotSupported() ?: return null }
-
-        val link = attachments.find { it.type === WallpostAttachmentType.LINK }?.link?.url
-        val publicationText = if (link != null && !text.contains(link)) "$text\n\n$link" else text
-
         return Publication(publicationText.ifBlank { null }, publicationAttachments)
     }
 
@@ -131,6 +135,21 @@ class VkTgReposter {
                 logger.warn("Skipping conversion of unsupported attachment: {}.", this)
                 null
             }
+        }
+    }
+
+    private fun formatPublicationText(text: String, attachedLink: Link?): String {
+        val vkLinkTemplate = """\[(.*?)(?:\|(.*?))?]""".toRegex()
+        val textWithLinksFormatted = vkLinkTemplate.replace(text) { linkToDisplayedText ->
+            val link = linkToDisplayedText.groups[1]?.value.orEmpty()
+            val linkText = linkToDisplayedText.groups[2]?.value.orEmpty()
+            val isExternalLink = link.matches(Regex("""https?://\S+"""))
+            if (isExternalLink) "$linkText ($link)" else linkText
+        }
+        return if (attachedLink != null && !text.contains(attachedLink.url)) {
+            "$textWithLinksFormatted\n\n${attachedLink.url}"
+        } else {
+            textWithLinksFormatted
         }
     }
 

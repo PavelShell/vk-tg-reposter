@@ -84,6 +84,8 @@ class VkApi {
         .count(100)
         .execute()
         .items
+        // rate limit for VK API is 3 requests per second --- 1000 / 3 == 333
+        .also { Thread.sleep(333) }
 
     /**
      * Returns ULR of the [photo] of size up to 2560x2048px.

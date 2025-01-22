@@ -1,6 +1,6 @@
 package com.pavelshell
 
-import com.pavelshell.logic.FileStorage
+import com.pavelshell.logic.FileBasedStorage
 import com.pavelshell.logic.TgApi
 import com.pavelshell.logic.TgApi.TelegramApiException
 import com.pavelshell.logic.VkApi
@@ -43,7 +43,7 @@ class VkTgReposterTest {
 
     @BeforeEach
     fun `stub static methods`() {
-        mockkObject(FileStorage)
+        mockkObject(FileBasedStorage)
     }
 
     @Nested
@@ -66,12 +66,12 @@ class VkTgReposterTest {
                 attachments = listOf()
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns time.epochSecond.toString()
+            every { FileBasedStorage.get(VK_DOMAIN) } returns time.epochSecond.toString()
             every { vkApi.getWallPostsFrom(time, VK_DOMAIN) } returns listOf(newWallPost)
             vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
             verifyOrder {
-                FileStorage.get(VK_DOMAIN)
+                FileBasedStorage.get(VK_DOMAIN)
                 vkApi.getWallPostsFrom(time, VK_DOMAIN)
                 tgBot.publish(TG_ID, any<Publication>())
             }
@@ -86,14 +86,14 @@ class VkTgReposterTest {
             }
             val vkTgReposterSpy = spyk(vkTgReposter, recordPrivateCalls = true)
 
-            every { FileStorage.get(VK_DOMAIN) } returns null
+            every { FileBasedStorage.get(VK_DOMAIN) } returns null
             every { vkTgReposterSpy["getEnv"]("LAST_PUBLICATION_UNIX_TIMESTAMP_$VK_DOMAIN") } returns
                     time.epochSecond.toString()
             every { vkApi.getWallPostsFrom(time, VK_DOMAIN) } returns listOf(newWallPost)
             vkTgReposterSpy.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
             verifyOrder {
-                FileStorage.get(VK_DOMAIN)
+                FileBasedStorage.get(VK_DOMAIN)
                 vkTgReposterSpy["getEnv"]("LAST_PUBLICATION_UNIX_TIMESTAMP_$VK_DOMAIN")
                 vkApi.getWallPostsFrom(time, VK_DOMAIN)
                 tgBot.publish(TG_ID, any<Publication>())
@@ -108,13 +108,13 @@ class VkTgReposterTest {
             }
             val vkTgReposterSpy = spyk(vkTgReposter, recordPrivateCalls = true)
 
-            every { FileStorage.get(VK_DOMAIN) } returns null
+            every { FileBasedStorage.get(VK_DOMAIN) } returns null
             every { vkTgReposterSpy["getEnv"]("LAST_PUBLICATION_UNIX_TIMESTAMP_$VK_DOMAIN") } returns null
             every { vkApi.getWallPostsFrom(Instant.MIN, VK_DOMAIN) } returns listOf(newWallPost)
             vkTgReposterSpy.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
             verifyOrder {
-                FileStorage.get(VK_DOMAIN)
+                FileBasedStorage.get(VK_DOMAIN)
                 vkTgReposterSpy["getEnv"]("LAST_PUBLICATION_UNIX_TIMESTAMP_$VK_DOMAIN")
                 vkApi.getWallPostsFrom(Instant.MIN, VK_DOMAIN)
                 tgBot.publish(TG_ID, any<Publication>())
@@ -133,7 +133,7 @@ class VkTgReposterTest {
                 copyHistory = listOf(WallpostFull())
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
@@ -147,7 +147,7 @@ class VkTgReposterTest {
                 attachments = listOf()
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
@@ -161,7 +161,7 @@ class VkTgReposterTest {
                 attachments = listOf(WallpostAttachment().apply { type = WallpostAttachmentType.PHOTO })
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
@@ -169,21 +169,23 @@ class VkTgReposterTest {
         }
 
         @Test
-        fun `should append link to the text of the publication`() {
-            val linkAttachment = Link().apply { url = "some-url://" }
+        fun `should format text of the publication replacing VK format links with with plain text`() {
+            val externalLink = "http://example.com"
+            val linkAttachment = Link().apply { url = externalLink }
             val newWallPost = WallItem().apply {
-                text = "wall post text"
+                text = "wall post with the [id548182636|internal link] and [$externalLink|external link]"
                 attachments = listOf(WallpostAttachment().apply {
                     type = WallpostAttachmentType.LINK
                     link = linkAttachment
                 })
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
-            verify { tgBot.publish(TG_ID, Publication("${newWallPost.text}\n\n${linkAttachment.url}")) }
+            val expectedText = "wall post with the internal link and external link ($externalLink)"
+            verify { tgBot.publish(TG_ID, Publication(expectedText)) }
         }
 
         @Test
@@ -197,7 +199,7 @@ class VkTgReposterTest {
                 })
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
@@ -218,7 +220,7 @@ class VkTgReposterTest {
                 })
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every { vkApi.getPhotoUrl(photoAttachment) } returns photoUri
             every { vkApi.tryDownloadFile(photoUri, TgApi.MAX_FILE_SIZE_MB) } returns
@@ -251,7 +253,7 @@ class VkTgReposterTest {
                 )
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every { vkApi.getPhotoUrl(photoAttachment) } returns photoUri
             every { vkApi.tryDownloadFile(photoUri, TgApi.MAX_FILE_SIZE_MB) } returns null
@@ -276,7 +278,7 @@ class VkTgReposterTest {
                 text = ""
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every {
                 vkApi.tryDownloadVideo(videoAttachment.id.toLong(), videoAttachment.ownerId, TgApi.MAX_FILE_SIZE_MB)
@@ -308,7 +310,7 @@ class VkTgReposterTest {
                 )
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every {
                 vkApi.tryDownloadVideo(videoAttachment.id.toLong(), videoAttachment.ownerId, TgApi.MAX_FILE_SIZE_MB)
@@ -335,7 +337,7 @@ class VkTgReposterTest {
                 })
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every { vkApi.tryDownloadFile(docAttachment.url, TgApi.MAX_FILE_SIZE_MB) } returns
                     (downloadedDocUrl to downloadedDocData)
@@ -370,7 +372,7 @@ class VkTgReposterTest {
                 )
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every { vkApi.tryDownloadFile(docAttachment.url, TgApi.MAX_FILE_SIZE_MB) } returns null
             vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
@@ -396,7 +398,7 @@ class VkTgReposterTest {
                 })
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every { vkApi.tryDownloadFile(audioAttachment.url, TgApi.MAX_FILE_SIZE_MB) } returns
                     (mockk<URL>() to downloadedAudioData)
@@ -434,7 +436,7 @@ class VkTgReposterTest {
                 )
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every { vkApi.tryDownloadFile(audioAttachment.url, TgApi.MAX_FILE_SIZE_MB) } returns null
             vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
@@ -463,7 +465,7 @@ class VkTgReposterTest {
                 )
             }
 
-            every { FileStorage.get(VK_DOMAIN) } returns "778899"
+            every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
             every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(newWallPost)
             every { vkApi.tryDownloadFile(audioAttachment.url, TgApi.MAX_FILE_SIZE_MB) } returns
                     (mockk<URL>() to downloadedAudioData)
@@ -491,7 +493,7 @@ class VkTgReposterTest {
             date = 3
         }
 
-        every { FileStorage.get(VK_DOMAIN) } returns "778899"
+        every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
         every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(post1, post2, post3)
         every { tgBot.publish(TG_ID, any<Publication>()) } returns Unit andThenThrows TelegramApiException()
         vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
@@ -499,7 +501,7 @@ class VkTgReposterTest {
         verifyOrder {
             tgBot.publish(TG_ID, any<Publication>())
             tgBot.publish(TG_ID, any<Publication>())
-            FileStorage.set(VK_DOMAIN, post1.date.toString())
+            FileBasedStorage.set(VK_DOMAIN, post1.date.toString())
         }
     }
 

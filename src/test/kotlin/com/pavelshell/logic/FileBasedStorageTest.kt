@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 
-class FileStorageTest {
+class FileBasedStorageTest {
 
     @BeforeEach
     @AfterEach
@@ -21,9 +21,9 @@ class FileStorageTest {
         val key = "key"
         val value = "value"
 
-        FileStorage.set("key", "value")
+        FileBasedStorage.set("key", "value")
 
-        val savedValue = FileStorage.get(key)
+        val savedValue = FileBasedStorage.get(key)
         Assertions.assertEquals(value, savedValue)
         val storageFileLines = storageFile.readLines()
         Assertions.assertEquals(1, storageFileLines.size)
@@ -36,7 +36,7 @@ class FileStorageTest {
         val value = "value"
         storageFile.writeText("$key $value")
 
-        val savedValue = FileStorage.get(key)
+        val savedValue = FileBasedStorage.get(key)
 
         Assertions.assertEquals(value, savedValue)
     }
