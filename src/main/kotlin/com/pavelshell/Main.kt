@@ -8,6 +8,8 @@ private const val LOCK_KEY = "lock"
 
 private val logger = LoggerFactory.getLogger("Main")
 
+// todo: уменьшить количество логов?
+// todo: настроить лог ТГ
 fun main() {
     if (!acquireLock()) {
         logger.warn("Unable to acquire lock, exiting")
@@ -17,7 +19,6 @@ fun main() {
         run()
     } finally {
         releaseLock()
-        exitProcess(0)
     }
 }
 
@@ -43,9 +44,12 @@ private fun run() {
         ?: throw IllegalArgumentException("VK_GROUP_TO_TG_CHANNEL is not set"))
         .split(", ")
         .map {
-            val (vkGroup, tgChannel) = it.split(" ")
-            vkGroup to (tgChannel.toLongOrNull()
-                ?: throw IllegalArgumentException("TG channel ID $tgChannel is not a proper long number"))
+            val vkIdToTgId = it.split(" ")
+            if (vkIdToTgId.size != 2) {
+                throw IllegalArgumentException("VK_GROUP_TO_TG_CHANNEL should be formatted properly")
+            }
+            vkIdToTgId[0] to (vkIdToTgId[1].toLongOrNull()
+                ?: throw IllegalArgumentException("TG channel ID ${vkIdToTgId[1]} is not a proper long number"))
         }
     VkTgReposter(vkAppId, vkAccessToken, tgToken).duplicatePostsFromVkGroup(channelsToGroups)
 }

@@ -48,6 +48,7 @@ class VkApi {
      * Returned posts are sorted by creation date ascending.
      */
     fun getWallPostsFrom(timePoint: Instant, domain: String): List<WallItem> {
+        return apiClient.wall().getById(service, "-229183781_3").execute().items
         logger.info("Fetching wall posts from VK API for $domain starting from $timePoint")
         var offset = 0
         var wallPostsSlice = getWallPostsSlice(domain, offset)
@@ -124,6 +125,7 @@ class VkApi {
      */
     fun tryDownloadVideo(id: Long, ownerId: Long, maxSizeMb: Int = Int.MAX_VALUE): File? {
         val url = "https://vk.com/video${ownerId}_${id}"
+        // todo autodelete files on garbage collection
         val videoFile = File("${ownerId}_${id}").apply { deleteOnExit() }
         val request = YtDlpRequest(url).apply {
             setOption("max-filesize", "${maxSizeMb}M")

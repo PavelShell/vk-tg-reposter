@@ -2,7 +2,7 @@ package com.pavelshell
 
 import com.pavelshell.logic.FileBasedStorage
 import com.pavelshell.logic.TgApi
-import com.pavelshell.logic.TgApi.TelegramApiException
+import com.pavelshell.logic.TelegramApiException
 import com.pavelshell.logic.VkApi
 import com.pavelshell.models.Attachment
 import com.pavelshell.models.Publication
@@ -15,6 +15,7 @@ import com.vk.api.sdk.objects.wall.WallItem
 import com.vk.api.sdk.objects.wall.WallpostAttachment
 import com.vk.api.sdk.objects.wall.WallpostAttachmentType
 import com.vk.api.sdk.objects.wall.WallpostFull
+import dev.inmo.tgbotapi.bot.exceptions.CommonBotException
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -495,7 +496,7 @@ class VkTgReposterTest {
 
         every { FileBasedStorage.get(VK_DOMAIN) } returns "778899"
         every { vkApi.getWallPostsFrom(any<Instant>(), VK_DOMAIN) } returns listOf(post1, post2, post3)
-        every { tgBot.publish(TG_ID, any<Publication>()) } returns Unit andThenThrows TelegramApiException()
+        every { tgBot.publish(TG_ID, any<Publication>()) } returns Unit andThenThrows CommonBotException()
         vkTgReposter.duplicatePostsFromVkGroup(listOf(VK_DOMAIN to TG_ID))
 
         verifyOrder {

@@ -9,6 +9,8 @@ import com.vk.api.sdk.objects.base.Link
 import com.vk.api.sdk.objects.wall.WallItem
 import com.vk.api.sdk.objects.wall.WallpostAttachment
 import com.vk.api.sdk.objects.wall.WallpostAttachmentType
+import dev.inmo.micro_utils.common.filesize
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.time.Instant
 
@@ -43,7 +45,7 @@ class VkTgReposter {
         var lastPublicationTimestamp: Int? = null
         try {
             vkApi.getWallPostsFrom(getTimeOfLastPublishedPost(vkGroupDomain), vkGroupDomain).forEach { wallItem ->
-                logger.info("Preparing wall item {} for publication", wallItem)
+                logger.info("Preparing wall item {} for publication", wallItem.id)
                 wallItem.toPublicationOrNullIfNotSupported()?.let {
                     tgBot.publish(tgChannelId, it)
                 }
@@ -101,6 +103,10 @@ class VkTgReposter {
         val publicationAttachments = attachments
             .filter { it.type !== WallpostAttachmentType.LINK }
             .map { it.toDomainAttachmentOrNullIfNotSupported() ?: return null }
+        // todo: media group size
+//        if (publicationAttachments.isEmpty() || publicationAttachments.sumOf { att -> (att as Attachment.Video).data.filesize } > TgApi.MAX_FILE_SIZE_MB * 1_048_576L) {
+//            return null
+//        }
         return Publication(publicationText.ifBlank { null }, publicationAttachments)
     }
 
