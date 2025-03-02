@@ -1,7 +1,7 @@
 package com.pavelshell
 
 import com.pavelshell.logic.FileBasedStorage
-import com.pavelshell.logic.TgApi
+import com.pavelshell.logic.TgApiFacade
 import com.pavelshell.logic.VkApi
 import com.pavelshell.models.Attachment
 import com.pavelshell.models.Publication
@@ -16,23 +16,23 @@ class VkTgReposter {
 
     private val vkApi: VkApi
 
-    private val tgBot: TgApi
+    private val tgApi: TgApiFacade
 
     /**
-     * Initializes the script by instantiating [VkApi] and [TgApi] with provided credentials.
+     * Initializes the script by instantiating [VkApi] and [TgApiFacade] with provided credentials.
      */
     constructor(vkAppId: Int, vkAccessToken: String, tgToken: String) {
         vkApi = VkApi(vkAppId, vkAccessToken)
-        tgBot = TgApi(tgToken)
+        tgApi = TgApiFacade(tgToken)
     }
 
     /**
      * Default constructor with all dependencies.
      */
     // created for testing
-    constructor(vkApi: VkApi, tgBot: TgApi) {
+    constructor(vkApi: VkApi, tgApi: TgApiFacade) {
         this.vkApi = vkApi
-        this.tgBot = tgBot
+        this.tgApi = tgApi
     }
 
     fun duplicatePostsFromVkGroup(vkGroupsToTgChannels: List<Pair<String, Long>>) =
@@ -45,7 +45,7 @@ class VkTgReposter {
             vkApi.getWallPostsFrom(getTimeOfLastPublishedPost(vkGroupDomain), vkGroupDomain).forEach { wallItem ->
                 logger.info("Preparing wall item {} for publication", wallItem)
                 wallItem.toPublicationOrNullIfNotSupported()?.let {
-                    tgBot.publish(tgChannelId, it)
+                    tgApi.publish(tgChannelId, it)
                 }
                 lastPublicationTimestamp = wallItem.date
             }
@@ -92,7 +92,7 @@ class VkTgReposter {
             text,
             attachments.find { it.type === WallpostAttachmentType.LINK }?.link
         )
-        (TgApi.MAX_MESSAGE_TEXT_SIZE < publicationText.length).also { isMaxTextLengthExceeded ->
+        (TgApiFacade.MAX_MESSAGE_TEXT_SIZE < publicationText.length).also { isMaxTextLengthExceeded ->
             if (isMaxTextLengthExceeded) {
                 logger.info("Skipping conversion of publication due to text limit excess: {}.", this)
                 return null
@@ -108,25 +108,25 @@ class VkTgReposter {
         // TODO: implement Link attachment when link_preview_option will be implemented by Telegram bot library we use
         return when {
             WallpostAttachmentType.PHOTO == type -> {
-                val (url, bytes) = vkApi.tryDownloadFile(vkApi.getPhotoUrl(photo), TgApi.MAX_FILE_SIZE_MB)
+                val (url, bytes) = vkApi.tryDownloadFile(vkApi.getPhotoUrl(photo), TgApiFacade.MAX_FILE_SIZE_MB)
                     ?: return null
                 Attachment.Photo(url.toString(), bytes, photo.id)
             }
 
             WallpostAttachmentType.VIDEO == type -> {
-                val file = vkApi.tryDownloadVideo(video.id.toLong(), video.ownerId, TgApi.MAX_FILE_SIZE_MB)
+                val file = vkApi.tryDownloadVideo(video.id.toLong(), video.ownerId, TgApiFacade.MAX_FILE_SIZE_MB)
                     ?: return null
                 Attachment.Video(file, video.duration)
             }
 
             WallpostAttachmentType.DOC == type && GIF_DOCUMENT_CODE == doc.type -> {
-                val (url, bytes) = vkApi.tryDownloadFile(doc.url, TgApi.MAX_FILE_SIZE_MB)
+                val (url, bytes) = vkApi.tryDownloadFile(doc.url, TgApiFacade.MAX_FILE_SIZE_MB)
                     ?: return null
                 Attachment.Gif(bytes, url.toString(), doc.id)
             }
 
             WallpostAttachmentType.AUDIO == type -> {
-                val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApi.MAX_FILE_SIZE_MB)
+                val (_, bytes) = vkApi.tryDownloadFile(audio.url, TgApiFacade.MAX_FILE_SIZE_MB)
                     ?: return null
                 Attachment.Audio(bytes, audio.artist, audio.title, audio.duration)
             }
